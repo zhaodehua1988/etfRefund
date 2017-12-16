@@ -20,31 +20,30 @@ package params
 // the main Ethereum network.
 var MainnetBootnodes = []string{
 	// Ethereum Foundation Go Bootnodes
-	"enode://91115bff3a0391a45b2003f7f8ab3c767ce24ec6ff5a2c9a51264b3421dbd9762e78b0b99d7ee03a65bad1ecbb1f14e37fefa3e3a7448bf7505ac8dec4c809ad@47.93.251.181:30303", // china2
-	"enode://91115bff3a0391a45b2003f7f8ab3c767ce24ec6ff5a2c9a51264b3421dbd9762e78b0b99d7ee03a65bad1ecbb1f14e37fefa3e3a7448bf7505ac8dec4c809ad@47.93.251.181:50505", // china2
+	"enode://9a91981f4a9762de87099213613a303449d56dcd867890f736024e3307058efb01317661fac89ccf664cfc96b949d9685ba4bf9a465a16782fdc0201cf2db828@59.110.26.199:61910", // china
+	"enode://9a91981f4a9762de87099213613a303449d56dcd867890f736024e3307058efb01317661fac89ccf664cfc96b949d9685ba4bf9a465a16782fdc0201cf2db828@59.110.26.199:61911", // china
 }
 
 // TestnetBootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // Ropsten test network.
 var TestnetBootnodes = []string{
-	"enode://91115bff3a0391a45b2003f7f8ab3c767ce24ec6ff5a2c9a51264b3421dbd9762e78b0b99d7ee03a65bad1ecbb1f14e37fefa3e3a7448bf7505ac8dec4c809ad@47.93.251.181:30303", // china2
-	"enode://91115bff3a0391a45b2003f7f8ab3c767ce24ec6ff5a2c9a51264b3421dbd9762e78b0b99d7ee03a65bad1ecbb1f14e37fefa3e3a7448bf7505ac8dec4c809ad@47.93.251.181:50505", // china2
+	"enode://9a91981f4a9762de87099213613a303449d56dcd867890f736024e3307058efb01317661fac89ccf664cfc96b949d9685ba4bf9a465a16782fdc0201cf2db828@59.110.26.199:61910", // china
 }
 
 // RinkebyBootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // Rinkeby test network.
 var RinkebyBootnodes = []string{
-	"enode://97bb9dfad70ce50925c133c1f50c2cc5e1c3e51c028843897a31840f8984466cb4abebd3c368b24243d04face17d5ed0a62f631bc8a431b095be611545900a68@39.107.61.127:61910", // china
+	"enode://9a91981f4a9762de87099213613a303449d56dcd867890f736024e3307058efb01317661fac89ccf664cfc96b949d9685ba4bf9a465a16782fdc0201cf2db828@59.110.26.199:61910", // china
 }
 
 // RinkebyV5Bootnodes are the enode URLs of the P2P bootstrap nodes running on the
 // Rinkeby test network for the experimental RLPx v5 topic-discovery network.
 var RinkebyV5Bootnodes = []string{
-	"enode://97bb9dfad70ce50925c133c1f50c2cc5e1c3e51c028843897a31840f8984466cb4abebd3c368b24243d04face17d5ed0a62f631bc8a431b095be611545900a68@39.107.61.127:61910", // china
+	"enode://9a91981f4a9762de87099213613a303449d56dcd867890f736024e3307058efb01317661fac89ccf664cfc96b949d9685ba4bf9a465a16782fdc0201cf2db828@59.110.26.199:61910", // china
 }
 
 // DiscoveryV5Bootnodes are the enode URLs of the P2P bootstrap nodes for the
 // experimental RLPx v5 topic-discovery network.
 var DiscoveryV5Bootnodes = []string{
-	"enode://97bb9dfad70ce50925c133c1f50c2cc5e1c3e51c028843897a31840f8984466cb4abebd3c368b24243d04face17d5ed0a62f631bc8a431b095be611545900a68@39.107.61.127:61910", // china
+	"enode://9a91981f4a9762de87099213613a303449d56dcd867890f736024e3307058efb01317661fac89ccf664cfc96b949d9685ba4bf9a465a16782fdc0201cf2db828@59.110.26.199:61910", // china
 }
