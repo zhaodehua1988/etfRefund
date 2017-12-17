@@ -40,7 +40,7 @@ var (
 		EIP155Block:    big.NewInt(2675000),
 		EIP158Block:    big.NewInt(2675000),
 		ByzantiumBlock: big.NewInt(4370000),
-		ETFOForBlock: big.NewInt(9996),
+		ETFOForBlock: big.NewInt(4730660),
 		ETFForkSupport: true,
 
 		Ethash: new(EthashConfig),
