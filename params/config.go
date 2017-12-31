@@ -40,7 +40,7 @@ var (
 		EIP155Block:    big.NewInt(2675000),
 		EIP158Block:    big.NewInt(2675000),
 		ByzantiumBlock: big.NewInt(4370000),
-		ETFOForBlock: big.NewInt(4730660),
+		ETFForkBlock: big.NewInt(4730660),
 		ETFForkSupport: true,
 
 		Ethash: new(EthashConfig),
@@ -118,7 +118,7 @@ type ChainConfig struct {
 	EIP158Block *big.Int `json:"eip158Block,omitempty"` // EIP158 HF block
 
 	ByzantiumBlock *big.Int `json:"byzantiumBlock,omitempty"` // Byzantium switch block (nil = no fork, 0 = already on byzantium)
-	ETFOForBlock *big.Int `json:"ETFOForBlock,omitempty"` // Byzantium switch block (nil = no fork, 0 = already on byzantium)
+	ETFForkBlock *big.Int `json:"ETFForkBlock,omitempty"` // Byzantium switch block (nil = no fork, 0 = already on byzantium)
 	ETFForkSupport bool     `json:"ETFForkSupport,omitempty"` 
 	// Various consensus engines
 	Ethash *EthashConfig `json:"ethash,omitempty"`
@@ -155,7 +155,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v ETFOForBlock：%v Engine: %v}",
+	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v ETFForkBlock：%v Engine: %v}",
 		c.ChainId,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -164,7 +164,7 @@ func (c *ChainConfig) String() string {
 		c.EIP155Block,
 		c.EIP158Block,
 		c.ByzantiumBlock,
-		c.ETFOForBlock,
+		c.ETFForkBlock,
 		engine,
 	)
 }
@@ -181,7 +181,7 @@ func (c *ChainConfig) IsDAOFork(num *big.Int) bool {
 
 // IsDAO returns whether num is either equal to the DAO fork block or greater.
 func (c *ChainConfig) IsETFFork(num *big.Int) bool {
-	return isForked(c.ETFOForBlock, num)
+	return isForked(c.ETFForkBlock, num)
 }
 
 func (c *ChainConfig) IsEIP150(num *big.Int) bool {
@@ -237,11 +237,11 @@ func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *Confi
 
 func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *ConfigCompatError {
 
-	if isForkIncompatible(c.ETFOForBlock, newcfg.ETFOForBlock, head) {
-		return newCompatError("ETFOForBlock fork block", c.ETFOForBlock, newcfg.ETFOForBlock)
+	if isForkIncompatible(c.ETFForkBlock, newcfg.ETFForkBlock, head) {
+		return newCompatError("ETFForkBlock fork block", c.ETFForkBlock, newcfg.ETFForkBlock)
 	}
 	if c.IsETFFork(head) && c.ETFForkSupport != newcfg.ETFForkSupport {
-		return newCompatError("DAO fork support flag", c.ETFOForBlock, newcfg.ETFOForBlock)
+		return newCompatError("DAO fork support flag", c.ETFForkBlock, newcfg.ETFForkBlock)
 	}
 	if isForkIncompatible(c.HomesteadBlock, newcfg.HomesteadBlock, head) {
 		return newCompatError("Homestead fork block", c.HomesteadBlock, newcfg.HomesteadBlock)

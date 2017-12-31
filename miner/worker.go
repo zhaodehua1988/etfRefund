@@ -440,7 +440,7 @@ func (self *worker) commitNewWork() {
 	}
 
 		// If we are care about TheDAO hard-fork check whether to override the extra-data or not
-		if daoBlock := self.config.ETFOForBlock; daoBlock != nil {
+		if daoBlock := self.config.ETFForkBlock; daoBlock != nil {
 			// Check whether the block is among the fork extra-override range
 			limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
 			if header.Number.Cmp(daoBlock) >= 0 && header.Number.Cmp(limit) < 0 {

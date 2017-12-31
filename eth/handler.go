@@ -302,7 +302,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 	}
 
 	// If we're ETF hard-fork aware, validate any remote peer with regard to the hard-fork
-	if ETFBlock := pm.chainconfig.ETFOForBlock; ETFBlock != nil {
+	if ETFBlock := pm.chainconfig.ETFForkBlock; ETFBlock != nil {
 		// Request the peer's DAO fork header for extra-data validation
 		if err := p.RequestHeadersByNumber(ETFBlock.Uint64(), 1, 0, false); err != nil {
 			return err
@@ -449,7 +449,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 
 			// If we already have a DAO header, we can check the peer's TD against it. If
 			// the peer's ahead of this, it too must have a reply to the DAO check
-			if daoHeader := pm.blockchain.GetHeaderByNumber(pm.chainconfig.ETFOForBlock.Uint64()); daoHeader != nil {
+			if daoHeader := pm.blockchain.GetHeaderByNumber(pm.chainconfig.ETFForkBlock.Uint64()); daoHeader != nil {
 				if _, td := p.Head(); td.Cmp(pm.blockchain.GetTd(daoHeader.Hash(), daoHeader.Number.Uint64())) >= 0 {
 					verifyDAO = false
 				}
@@ -481,7 +481,7 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 			}
 
 						// If it's a potential DAO fork check, validate against the rules
-						if p.forkDrop != nil && pm.chainconfig.ETFOForBlock.Cmp(headers[0].Number) == 0 {
+						if p.forkDrop != nil && pm.chainconfig.ETFForkBlock.Cmp(headers[0].Number) == 0 {
 							// Disable the fork drop timer
 							p.forkDrop.Stop()
 							p.forkDrop = nil
