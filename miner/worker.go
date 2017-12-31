@@ -402,11 +402,11 @@ func (self *worker) commitNewWork() {
 		tstamp = parent.Time().Int64() + 1
 	}
 	// this will ensure we're not going off too far in the future
-	if now := time.Now().Unix(); tstamp > now+1 {
-		wait := time.Duration(tstamp-now) * time.Second
-		log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
-		time.Sleep(wait)
-	}
+	// if now := time.Now().Unix(); tstamp > now+1 {
+	// 	wait := time.Duration(tstamp-now) * time.Second
+	// 	log.Info("Mining too far in the future", "wait", common.PrettyDuration(wait))
+	// 	time.Sleep(wait)
+	// }
 
 	num := parent.Number()
 	header := &types.Header{
@@ -614,3 +614,4 @@ func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, c
 
 	return nil, receipt.Logs
 }
+
