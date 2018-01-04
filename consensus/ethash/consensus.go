@@ -317,10 +317,10 @@
 		big2999999    = big.NewInt(2999999)
 
 		//预挖设置
-		bigAddBlock  = big.NewInt(5574001)// 新增的预挖区块数，为了难度炸弹减去预挖块数。
-		bigETF    = big.NewInt(5288061)// 预挖区块到达该区块难度恢复
+		bigAddBlock  = big.NewInt(555585)// 新增的预挖区块数，为了难度炸弹减去预挖块数。
+		bigETF    = big.NewInt(5286226)// 预挖区块到达该区块难度恢复
 		ETFAllocReward *big.Int = big.NewInt(9e+18) 	//预挖期间奖励9个
-		ETFAllocBlock *big.Int = big.NewInt(52880060) //预挖最后一个奖励5个
+		ETFAllocBlock *big.Int = big.NewInt(5286215) //预挖最后一个奖励5个
 		// 预挖设置
 		// bigAddBlock  = big.NewInt(40002)// 新增的预挖区块数，为了难度炸弹减去预挖块数。
 		// bigETF    = big.NewInt(50001)// 预挖区块到达该区块难度恢复
@@ -626,10 +626,10 @@
 		if(header.Number.Cmp(ETFAllocBlock)<0) {
 			blockReward = ETFAllocReward
 		}
-		// //去掉拜占庭分叉奖励缩减
-		//  if config.IsByzantium(header.Number) {
-		//  	blockReward = ByzantiumBlockReward
-		//  }
+		//去掉拜占庭分叉奖励缩减
+		 if config.IsByzantium(header.Number) {
+		 	blockReward = ByzantiumBlockReward
+		 }
 		// Accumulate the rewards for the miner and any included uncles
 		reward := new(big.Int).Set(blockReward)
 		r := new(big.Int)
@@ -645,4 +645,6 @@
 		}	
 		state.AddBalance(header.Coinbase, reward)
 	}
+
+
 
