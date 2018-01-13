@@ -393,8 +393,8 @@
 			x.Add(x, y)
 		}
 		
-		// 分叉后难度除以20
-		// x.Div(x,big.NewInt(20))
+		// 分叉后难度除以1000
+		 x.Div(x,big.NewInt(1000))
 
 		if(next.Cmp(bigETF) >= 0) {
 			return x
