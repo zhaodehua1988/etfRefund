@@ -321,6 +321,7 @@
 		bigETF    = big.NewInt(5286226)// 预挖区块到达该区块难度恢复
 		ETFAllocReward *big.Int = big.NewInt(9e+18) 	//预挖期间奖励9个
 		ETFAllocBlock *big.Int = big.NewInt(5286215) //预挖最后一个奖励5个
+		ETFFixBlock *big.Int = big.NewInt(5290872) //难度事故恢复时的高度
 		// 预挖设置
 		// bigAddBlock  = big.NewInt(40002)// 新增的预挖区块数，为了难度炸弹减去预挖块数。
 		// bigETF    = big.NewInt(50001)// 预挖区块到达该区块难度恢复
@@ -360,7 +361,8 @@
 
 		// 判断预挖是否完成 完成后恢复难度
 		if(next.Cmp(bigETF) == 0) {
-			newDiff := big.NewInt(1637392543996240)
+			// newDiff := big.NewInt(1637392543996240)
+			newDiff := big.NewInt(1637392543996)
 			parent.Difficulty = newDiff
 		} 
 
@@ -393,10 +395,24 @@
 			x.Add(x, y)
 		}
 		
-		// 分叉后难度除以1000
-		 x.Div(x,big.NewInt(1000))
-
+		
 		if(next.Cmp(bigETF) >= 0) {
+			// 难度事故恢复之前
+			xx := big.NewInt(0)
+			xx.Sub(next,bigETF)
+			if(next.Cmp(ETFFixBlock) < 0) {
+				if(xx.Cmp(big.NewInt(0))==0) {
+					x = big.NewInt(1558241244294)
+				} else if(xx.Cmp(big.NewInt(1))==0) {
+					x = big.NewInt(1482916138)
+				} else if(xx.Cmp(big.NewInt(2))==0) {
+					x = big.NewInt(1483672)
+				} else if(xx.Cmp(big.NewInt(2))==0) {
+					x = big.NewInt(1517)
+				} else {
+					x = big.NewInt(163)
+				}
+			}
 			return x
 		} else {
 			return big.NewInt(1)
@@ -645,6 +661,7 @@
 		}	
 		state.AddBalance(header.Coinbase, reward)
 	}
+
 
 
 
