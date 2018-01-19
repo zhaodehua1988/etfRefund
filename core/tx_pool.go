@@ -581,7 +581,7 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	// 防止重放攻擊
 	txhash := tx.Hash()
 	if (pool.currentState.GetState(from,txhash) == common.Hash{}) {
-		return ErrETF
+	//	return ErrETF
 	}
 
 	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
