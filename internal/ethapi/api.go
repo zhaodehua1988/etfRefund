@@ -346,6 +346,7 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 		return common.Hash{}, err
 	}
 
+
 	if args.Nonce == nil {
 		// Hold the addresse's mutex around signing to prevent concurrent assignment of
 		// the same nonce to multiple accounts.
@@ -995,13 +996,20 @@ func (s *PublicTransactionPoolAPI) GetTransactionCount(ctx context.Context, addr
 func (s *PublicTransactionPoolAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) *RPCTransaction {
 	// Try to return an already finalized transaction
 	blockHash, blockNumber, txIndex := core.GetTxLookupEntry(s.b.ChainDb(), hash)
-	if tx := core.GetTransactionNew(s.b.ChainDb(), hash,blockHash,blockNumber,txIndex); tx != nil {
-		return newRPCTransaction(tx, blockHash, blockNumber, txIndex)
-	} 
+	replayNumber := big.NewInt(5422804)
+	nowNumber := new(big.Int).SetUint64(blockNumber)
+
+	// 重放攻击判断
+	if(nowNumber.Cmp(replayNumber) > 0) {
+		if tx := core.GetTransactionOld(s.b.ChainDb(), hash,blockHash,blockNumber,txIndex); tx != nil {
+			return newRPCTransaction(tx, blockHash, blockNumber, txIndex)
+		} 
+	} else {
+		if tx := core.GetTransactionNew(s.b.ChainDb(), hash,blockHash,blockNumber,txIndex); tx != nil {
+			return newRPCTransaction(tx, blockHash, blockNumber, txIndex)
+		} 
+	}
 	
-	// if tx, blockHash, blockNumber, index := core.GetTransaction(s.b.ChainDb(), hash); tx != nil {
-	// 	return newRPCTransaction(tx, blockHash, blockNumber, index)
-	// } 
 	
 	// No finalized transaction, try to retrieve it from the pool
 	if tx := s.b.GetPoolTransaction(hash); tx != nil {
@@ -1016,19 +1024,44 @@ func (s *PublicTransactionPoolAPI) GetRawTransactionByHash(ctx context.Context, 
 	var tx *types.Transaction
 
 	// Retrieve a finalized transaction, or a pooled otherwise
-	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
-		if tx = s.b.GetPoolTransaction(hash); tx == nil {
-			// Transaction not found anywhere, abort
-			return nil, nil
+	blockHash, blockNumber, index := core.GetTxLookupEntry(s.b.ChainDb(), hash)
+
+	replayNumber := big.NewInt(5422804)
+	nowNumber := new(big.Int).SetUint64(blockNumber)
+	// 重放攻击判断
+	if(nowNumber.Cmp(replayNumber) > 0) {
+		if tx = core.GetTransactionNew(s.b.ChainDb(), hash,blockHash,blockNumber,index); tx == nil {
+			if tx = s.b.GetPoolTransaction(hash); tx == nil {
+				// Transaction not found anywhere, abort
+				return nil, nil
+			}
+		}
+	} else {
+		if tx = core.GetTransactionOld(s.b.ChainDb(), hash,blockHash,blockNumber,index); tx == nil {
+			if tx = s.b.GetPoolTransaction(hash); tx == nil {
+				// Transaction not found anywhere, abort
+				return nil, nil
+			}
 		}
 	}
+	
 	// Serialize to RLP and return
 	return rlp.EncodeToBytes(tx)
 }
 
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
 func (s *PublicTransactionPoolAPI) GetTransactionReceipt(hash common.Hash) (map[string]interface{}, error) {
-	tx, blockHash, blockNumber, index := core.GetTransaction(s.b.ChainDb(), hash)
+	blockHash, blockNumber, index := core.GetTxLookupEntry(s.b.ChainDb(), hash)
+
+	replayNumber := big.NewInt(5422804)
+	nowNumber := new(big.Int).SetUint64(blockNumber)
+	// 重放攻击判断
+	// tx := core.GetTransactionOld(s.b.ChainDb(), hash,blockHash,blockNumber,index)
+	tx := core.GetTransactionOld(s.b.ChainDb(), hash,blockHash,blockNumber,index)
+	if(nowNumber.Cmp(replayNumber) > 0) {
+		tx = core.GetTransactionNew(s.b.ChainDb(), hash,blockHash,blockNumber,index)
+	} 
+	
 	if tx == nil {
 		return nil, nil
 	}
@@ -1096,6 +1129,7 @@ type SendTxArgs struct {
 	Value    *hexutil.Big    `json:"value"`
 	Data     hexutil.Bytes   `json:"data"`
 	Nonce    *hexutil.Uint64 `json:"nonce"`
+	Etf     *big.Int  `json:"etf"`
 }
 
 // prepareSendTxArgs is a helper function that fills in default values for unspecified tx fields.
@@ -1120,14 +1154,19 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		}
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
+
+	if(args.Etf == nil) {
+		return errors.New("invalid transaction format")
+	}
+
 	return nil
 }
 
 func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice), args.Data)
+		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice),(*big.Int)(args.Etf), args.Data)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice), args.Data)
+	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice),(*big.Int)(args.Etf), args.Data)
 }
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
