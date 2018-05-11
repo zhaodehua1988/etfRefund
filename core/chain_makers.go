@@ -172,6 +172,15 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Dat
 				}
 			}
 		}
+
+		if daoBlock := config.ETFForkBlock; daoBlock != nil {
+			limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
+			if h.Number.Cmp(daoBlock) >= 0 && h.Number.Cmp(limit) < 0 {
+				if config.ETFForkSupport {
+					h.Extra = common.CopyBytes(params.ETFForkBlockExtra)
+				}
+			}
+		}
 		if config.DAOForkSupport && config.DAOForkBlock != nil && config.DAOForkBlock.Cmp(h.Number) == 0 {
 			misc.ApplyDAOHardFork(statedb)
 		}

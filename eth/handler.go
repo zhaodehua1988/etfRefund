@@ -286,6 +286,7 @@ func (pm *ProtocolManager) handle(p *peer) error {
 		if err := p.RequestHeadersByNumber(daoBlock.Uint64(), 1, 0, false); err != nil {
 			return err
 		}
+		
 		// Start a timer to disconnect if the peer doesn't reply in time
 		p.forkDrop = time.AfterFunc(daoChallengeTimeout, func() {
 			p.Log().Debug("Timed out DAO fork-check, dropping")
@@ -299,6 +300,27 @@ func (pm *ProtocolManager) handle(p *peer) error {
 			}
 		}()
 	}
+
+	// If we're ETF hard-fork aware, validate any remote peer with regard to the hard-fork
+	if ETFBlock := pm.chainconfig.ETFForkBlock; ETFBlock != nil {
+		// Request the peer's DAO fork header for extra-data validation
+		if err := p.RequestHeadersByNumber(ETFBlock.Uint64(), 1, 0, false); err != nil {
+			return err
+		}
+		// Start a timer to disconnect if the peer doesn't reply in time
+		p.forkDrop = time.AfterFunc(daoChallengeTimeout, func() {
+			p.Log().Debug("Timed out ETF fork-check, dropping")
+			pm.removePeer(p.id)
+		})
+		// Make sure it's cleaned up if the peer dies off
+		defer func() {
+			if p.forkDrop != nil {
+				p.forkDrop.Stop()
+				p.forkDrop = nil
+			}
+		}()
+	}
+
 	// main loop. handle incoming messages.
 	for {
 		if err := pm.handleMsg(p); err != nil {
@@ -424,6 +446,14 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 					verifyDAO = false
 				}
 			}
+
+			// If we already have a DAO header, we can check the peer's TD against it. If
+			// the peer's ahead of this, it too must have a reply to the DAO check
+			if daoHeader := pm.blockchain.GetHeaderByNumber(pm.chainconfig.ETFForkBlock.Uint64()); daoHeader != nil {
+				if _, td := p.Head(); td.Cmp(pm.blockchain.GetTd(daoHeader.Hash(), daoHeader.Number.Uint64())) >= 0 {
+					verifyDAO = false
+				}
+			}
 			// If we're seemingly on the same chain, disable the drop timer
 			if verifyDAO {
 				p.Log().Debug("Seems to be on the same side of the DAO fork")
@@ -449,6 +479,22 @@ func (pm *ProtocolManager) handleMsg(p *peer) error {
 				p.Log().Debug("Verified to be on the same side of the DAO fork")
 				return nil
 			}
+
+						// If it's a potential DAO fork check, validate against the rules
+						if p.forkDrop != nil && pm.chainconfig.ETFForkBlock.Cmp(headers[0].Number) == 0 {
+							// Disable the fork drop timer
+							p.forkDrop.Stop()
+							p.forkDrop = nil
+			
+							// Validate the header and either drop the peer or continue
+							if err := misc.VerifyETFHeaderExtraData(pm.chainconfig, headers[0]); err != nil {
+								p.Log().Debug("Verified to be on the other side of the DAO fork, dropping")
+								return err
+							}
+							p.Log().Debug("Verified to be on the same side of the DAO fork")
+							return nil
+						}
+
 			// Irrelevant of the fork checks, send the header to the fetcher just in case
 			headers = pm.fetcher.FilterHeaders(p.id, headers, time.Now())
 		}
