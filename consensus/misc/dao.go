@@ -97,12 +97,12 @@ func ApplyDAOHardFork(statedb *state.StateDB) {
 //      unique extra-data set.
 func VerifyETFHeaderExtraData(config *params.ChainConfig, header *types.Header) error {
 	// Short circuit validation if the node doesn't care about the DAO fork
-	if config.ETFOForBlock == nil {
+	if config.ETFForkBlock == nil {
 		return nil
 	}
 	// Make sure the block is within the fork's modified extra-data range
-	limit := new(big.Int).Add(config.ETFOForBlock, params.DAOForkExtraRange)
-	if header.Number.Cmp(config.ETFOForBlock) < 0 || header.Number.Cmp(limit) >= 0 {
+	limit := new(big.Int).Add(config.ETFForkBlock, params.DAOForkExtraRange)
+	if header.Number.Cmp(config.ETFForkBlock) < 0 || header.Number.Cmp(limit) >= 0 {
 		return nil
 	}
 	// Depending on whether we support or oppose the fork, validate the extra-data contents

@@ -78,6 +78,9 @@ var (
 	// than some meaningful limit a user might use. This is not a consensus error
 	// making the transaction invalid, rather a DOS protection.
 	ErrOversizedData = errors.New("oversized data")
+
+
+	ErrETF = errors.New("error EOFork")
 )
 
 var (
@@ -574,6 +577,17 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	}
 	// Drop non-local transactions under our own minimal accepted gas price
 	local = local || pool.locals.contains(from) // account may be local even if the transaction arrived from the network
+
+	// 防止重放攻擊
+	txhash := tx.Hash()
+	if (pool.currentState.GetState(from,txhash) == common.Hash{}) {
+	//	return ErrETF
+	}
+	etf := big.NewInt(4730660)
+	if tx.Etf().Cmp(etf) != 0 {
+		return ErrETF
+	}
+
 	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced
 	}
@@ -751,6 +765,13 @@ func (pool *TxPool) promoteTx(addr common.Address, hash common.Hash, tx *types.T
 // the sender as a local one in the mean time, ensuring it goes around the local
 // pricing constraints.
 func (pool *TxPool) AddLocal(tx *types.Transaction) error {
+	// 防止重放攻擊
+	txhash := tx.Hash()
+	from, err := types.Sender(pool.signer, tx)
+	if err != nil {
+		return ErrInvalidSender
+	}
+	pool.currentState.SetState(from,txhash,txhash)
 	return pool.addTx(tx, !pool.config.NoLocals)
 }
 
@@ -1159,3 +1180,4 @@ func (as *accountSet) containsTx(tx *types.Transaction) bool {
 func (as *accountSet) add(addr common.Address) {
 	as.accounts[addr] = struct{}{}
 }
+

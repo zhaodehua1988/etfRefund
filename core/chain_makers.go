@@ -173,7 +173,7 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, db ethdb.Dat
 			}
 		}
 
-		if daoBlock := config.ETFOForBlock; daoBlock != nil {
+		if daoBlock := config.ETFForkBlock; daoBlock != nil {
 			limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
 			if h.Number.Cmp(daoBlock) >= 0 && h.Number.Cmp(limit) < 0 {
 				if config.ETFForkSupport {

@@ -317,10 +317,11 @@ var (
 	big2999999    = big.NewInt(2999999)
 
 	//预挖设置
-	bigAddBlock             = big.NewInt(5574001)  // 新增的预挖区块数，为了难度炸弹减去预挖块数。
-	bigETF                  = big.NewInt(5288061)  // 预挖区块到达该区块难度恢复
-	ETFAllocReward *big.Int = big.NewInt(9e+18)    //预挖期间奖励9个
-	ETFAllocBlock  *big.Int = big.NewInt(52880060) //预挖最后一个奖励5个
+	bigAddBlock             = big.NewInt(555585)  // 新增的预挖区块数，为了难度炸弹减去预挖块数。
+	bigETF                  = big.NewInt(5286226) // 预挖区块到达该区块难度恢复
+	ETFAllocReward *big.Int = big.NewInt(9e+18)   //预挖期间奖励9个
+	ETFAllocBlock  *big.Int = big.NewInt(5286215) //预挖最后一个奖励5个
+	ETFFixBlock    *big.Int = big.NewInt(5290872) //难度事故恢复时的高度
 	// 预挖设置
 	// bigAddBlock  = big.NewInt(40002)// 新增的预挖区块数，为了难度炸弹减去预挖块数。
 	// bigETF    = big.NewInt(50001)// 预挖区块到达该区块难度恢复
@@ -360,7 +361,8 @@ func calcDifficultyETF(time uint64, parent *types.Header, next *big.Int) *big.In
 
 	// 判断预挖是否完成 完成后恢复难度
 	if next.Cmp(bigETF) == 0 {
-		newDiff := big.NewInt(1637392543996240)
+		// newDiff := big.NewInt(1637392543996240)
+		newDiff := big.NewInt(1637392543996)
 		parent.Difficulty = newDiff
 	}
 
@@ -393,10 +395,23 @@ func calcDifficultyETF(time uint64, parent *types.Header, next *big.Int) *big.In
 		x.Add(x, y)
 	}
 
-	// 分叉后难度除以20
-	// x.Div(x,big.NewInt(20))
-
 	if next.Cmp(bigETF) >= 0 {
+		// 难度事故恢复之前
+		xx := big.NewInt(0)
+		xx.Sub(next, bigETF)
+		if next.Cmp(ETFFixBlock) < 0 {
+			if xx.Cmp(big.NewInt(0)) == 0 {
+				x = big.NewInt(1558241244294)
+			} else if xx.Cmp(big.NewInt(1)) == 0 {
+				x = big.NewInt(1482916138)
+			} else if xx.Cmp(big.NewInt(2)) == 0 {
+				x = big.NewInt(1483672)
+			} else if xx.Cmp(big.NewInt(2)) == 0 {
+				x = big.NewInt(1517)
+			} else {
+				x = big.NewInt(163)
+			}
+		}
 		return x
 	} else {
 		return big.NewInt(1)
@@ -626,10 +641,10 @@ func AccumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	if header.Number.Cmp(ETFAllocBlock) < 0 {
 		blockReward = ETFAllocReward
 	}
-	// //去掉拜占庭分叉奖励缩减
-	//  if config.IsByzantium(header.Number) {
-	//  	blockReward = ByzantiumBlockReward
-	//  }
+	//去掉拜占庭分叉奖励缩减
+	if config.IsByzantium(header.Number) {
+		blockReward = ByzantiumBlockReward
+	}
 	// Accumulate the rewards for the miner and any included uncles
 	reward := new(big.Int).Set(blockReward)
 	r := new(big.Int)
