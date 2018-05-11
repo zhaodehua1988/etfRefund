@@ -186,6 +186,7 @@ func NewPublicAccountAPI(am *accounts.Manager) *PublicAccountAPI {
 }
 
 // Accounts returns the collection of accounts this node manages
+// 查询本节点的地址
 func (s *PublicAccountAPI) Accounts() []common.Address {
 	addresses := make([]common.Address, 0) // return [] instead of nil if empty
 	for _, wallet := range s.am.Wallets() {
@@ -344,6 +345,7 @@ func (s *PrivateAccountAPI) SendTransaction(ctx context.Context, args SendTxArgs
 	if err != nil {
 		return common.Hash{}, err
 	}
+
 
 	if args.Nonce == nil {
 		// Hold the addresse's mutex around signing to prevent concurrent assignment of
@@ -832,6 +834,25 @@ type RPCTransaction struct {
 	V                *hexutil.Big    `json:"v"`
 	R                *hexutil.Big    `json:"r"`
 	S                *hexutil.Big    `json:"s"`
+	Etf              *hexutil.Big    `json:"etf"`
+}
+
+// RPCTransaction represents a transaction that will serialize to the RPC representation of a transaction
+type RPCTransactionOld struct {
+	BlockHash        common.Hash     `json:"blockHash"`
+	BlockNumber      *hexutil.Big    `json:"blockNumber"`
+	From             common.Address  `json:"from"`
+	Gas              *hexutil.Big    `json:"gas"`
+	GasPrice         *hexutil.Big    `json:"gasPrice"`
+	Hash             common.Hash     `json:"hash"`
+	Input            hexutil.Bytes   `json:"input"`
+	Nonce            hexutil.Uint64  `json:"nonce"`
+	To               *common.Address `json:"to"`
+	TransactionIndex hexutil.Uint    `json:"transactionIndex"`
+	Value            *hexutil.Big    `json:"value"`
+	V                *hexutil.Big    `json:"v"`
+	R                *hexutil.Big    `json:"r"`
+	S                *hexutil.Big    `json:"s"`
 }
 
 // newRPCTransaction returns a transaction that will serialize to the RPC
@@ -856,6 +877,7 @@ func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber
 		V:        (*hexutil.Big)(v),
 		R:        (*hexutil.Big)(r),
 		S:        (*hexutil.Big)(s),
+		Etf:      (*hexutil.Big)(tx.Etf()),
 	}
 	if blockHash != (common.Hash{}) {
 		result.BlockHash = blockHash
@@ -973,9 +995,22 @@ func (s *PublicTransactionPoolAPI) GetTransactionCount(ctx context.Context, addr
 // GetTransactionByHash returns the transaction for the given hash
 func (s *PublicTransactionPoolAPI) GetTransactionByHash(ctx context.Context, hash common.Hash) *RPCTransaction {
 	// Try to return an already finalized transaction
-	if tx, blockHash, blockNumber, index := core.GetTransaction(s.b.ChainDb(), hash); tx != nil {
-		return newRPCTransaction(tx, blockHash, blockNumber, index)
+	blockHash, blockNumber, txIndex := core.GetTxLookupEntry(s.b.ChainDb(), hash)
+	replayNumber := big.NewInt(5422804)
+	nowNumber := new(big.Int).SetUint64(blockNumber)
+
+	// 重放攻击判断
+	if(nowNumber.Cmp(replayNumber) > 0) {
+		if tx := core.GetTransactionOld(s.b.ChainDb(), hash,blockHash,blockNumber,txIndex); tx != nil {
+			return newRPCTransaction(tx, blockHash, blockNumber, txIndex)
+		} 
+	} else {
+		if tx := core.GetTransactionNew(s.b.ChainDb(), hash,blockHash,blockNumber,txIndex); tx != nil {
+			return newRPCTransaction(tx, blockHash, blockNumber, txIndex)
+		} 
 	}
+	
+	
 	// No finalized transaction, try to retrieve it from the pool
 	if tx := s.b.GetPoolTransaction(hash); tx != nil {
 		return newRPCPendingTransaction(tx)
@@ -989,19 +1024,44 @@ func (s *PublicTransactionPoolAPI) GetRawTransactionByHash(ctx context.Context, 
 	var tx *types.Transaction
 
 	// Retrieve a finalized transaction, or a pooled otherwise
-	if tx, _, _, _ = core.GetTransaction(s.b.ChainDb(), hash); tx == nil {
-		if tx = s.b.GetPoolTransaction(hash); tx == nil {
-			// Transaction not found anywhere, abort
-			return nil, nil
+	blockHash, blockNumber, index := core.GetTxLookupEntry(s.b.ChainDb(), hash)
+
+	replayNumber := big.NewInt(5422804)
+	nowNumber := new(big.Int).SetUint64(blockNumber)
+	// 重放攻击判断
+	if(nowNumber.Cmp(replayNumber) > 0) {
+		if tx = core.GetTransactionNew(s.b.ChainDb(), hash,blockHash,blockNumber,index); tx == nil {
+			if tx = s.b.GetPoolTransaction(hash); tx == nil {
+				// Transaction not found anywhere, abort
+				return nil, nil
+			}
+		}
+	} else {
+		if tx = core.GetTransactionOld(s.b.ChainDb(), hash,blockHash,blockNumber,index); tx == nil {
+			if tx = s.b.GetPoolTransaction(hash); tx == nil {
+				// Transaction not found anywhere, abort
+				return nil, nil
+			}
 		}
 	}
+	
 	// Serialize to RLP and return
 	return rlp.EncodeToBytes(tx)
 }
 
 // GetTransactionReceipt returns the transaction receipt for the given transaction hash.
 func (s *PublicTransactionPoolAPI) GetTransactionReceipt(hash common.Hash) (map[string]interface{}, error) {
-	tx, blockHash, blockNumber, index := core.GetTransaction(s.b.ChainDb(), hash)
+	blockHash, blockNumber, index := core.GetTxLookupEntry(s.b.ChainDb(), hash)
+
+	replayNumber := big.NewInt(5422804)
+	nowNumber := new(big.Int).SetUint64(blockNumber)
+	// 重放攻击判断
+	// tx := core.GetTransactionOld(s.b.ChainDb(), hash,blockHash,blockNumber,index)
+	tx := core.GetTransactionOld(s.b.ChainDb(), hash,blockHash,blockNumber,index)
+	if(nowNumber.Cmp(replayNumber) > 0) {
+		tx = core.GetTransactionNew(s.b.ChainDb(), hash,blockHash,blockNumber,index)
+	} 
+	
 	if tx == nil {
 		return nil, nil
 	}
@@ -1069,6 +1129,7 @@ type SendTxArgs struct {
 	Value    *hexutil.Big    `json:"value"`
 	Data     hexutil.Bytes   `json:"data"`
 	Nonce    *hexutil.Uint64 `json:"nonce"`
+	Etf     *big.Int  `json:"etf"`
 }
 
 // prepareSendTxArgs is a helper function that fills in default values for unspecified tx fields.
@@ -1093,14 +1154,19 @@ func (args *SendTxArgs) setDefaults(ctx context.Context, b Backend) error {
 		}
 		args.Nonce = (*hexutil.Uint64)(&nonce)
 	}
+
+	if(args.Etf == nil) {
+		return errors.New("invalid transaction format")
+	}
+
 	return nil
 }
 
 func (args *SendTxArgs) toTransaction() *types.Transaction {
 	if args.To == nil {
-		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice), args.Data)
+		return types.NewContractCreation(uint64(*args.Nonce), (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice),(*big.Int)(args.Etf), args.Data)
 	}
-	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice), args.Data)
+	return types.NewTransaction(uint64(*args.Nonce), *args.To, (*big.Int)(args.Value), (*big.Int)(args.Gas), (*big.Int)(args.GasPrice),(*big.Int)(args.Etf), args.Data)
 }
 
 // submitTransaction is a helper function that submits tx to txPool and logs a message.
@@ -1409,3 +1475,4 @@ func (s *PublicNetAPI) PeerCount() hexutil.Uint {
 func (s *PublicNetAPI) Version() string {
 	return fmt.Sprintf("%d", s.networkVersion)
 }
+

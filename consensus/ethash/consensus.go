@@ -294,10 +294,13 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
 	next := new(big.Int).Add(parent.Number, big1)
 	switch {
+	case config.IsETFFork(next):
+		return calcDifficultyETF(time, parent, next)
 	case config.IsByzantium(next):
 		return calcDifficultyByzantium(time, parent)
 	case config.IsHomestead(next):
 		return calcDifficultyHomestead(time, parent)
+
 	default:
 		return calcDifficultyFrontier(time, parent)
 	}
@@ -312,7 +315,108 @@ var (
 	big10         = big.NewInt(10)
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
+
+	//预挖设置
+	bigAddBlock             = big.NewInt(555585)  // 新增的预挖区块数，为了难度炸弹减去预挖块数。
+	bigETF                  = big.NewInt(5286226) // 预挖区块到达该区块难度恢复
+	ETFAllocReward *big.Int = big.NewInt(9e+18)   //预挖期间奖励9个
+	ETFAllocBlock  *big.Int = big.NewInt(5286215) //预挖最后一个奖励5个
+	ETFFixBlock    *big.Int = big.NewInt(5290872) //难度事故恢复时的高度
+	// 预挖设置
+	// bigAddBlock  = big.NewInt(40002)// 新增的预挖区块数，为了难度炸弹减去预挖块数。
+	// bigETF    = big.NewInt(50001)// 预挖区块到达该区块难度恢复
+	// ETFAllocReward *big.Int = big.NewInt(9e+18) 	//预挖期间奖励9个
+	// ETFAllocBlock *big.Int = big.NewInt(5286215) //预挖最后一个奖励5个
 )
+
+// calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
+// the difficulty that a new block should have when created at time given the
+// parent block's time and difficulty. The calculation uses the Byzantium rules.
+func calcDifficultyETF(time uint64, parent *types.Header, next *big.Int) *big.Int {
+	// https://github.com/ethereum/EIPs/issues/100.
+	// algorithm:
+	// diff = (parent_diff +
+	//         (parent_diff / 2048 * max((2 if len(parent.uncles) else 1) - ((timestamp - parent.timestamp) // 9), -99))
+	//        ) + 2^(periodCount - 2)
+
+	bigTime := new(big.Int).SetUint64(time)
+	bigParentTime := new(big.Int).Set(parent.Time)
+
+	// holds intermediate values to make the algo easier to read & audit
+	x := new(big.Int)
+	y := new(big.Int)
+
+	// (2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9
+	x.Sub(bigTime, bigParentTime)
+	x.Div(x, big9)
+	if parent.UncleHash == types.EmptyUncleHash {
+		x.Sub(big1, x)
+	} else {
+		x.Sub(big2, x)
+	}
+	// max((2 if len(parent_uncles) else 1) - (block_timestamp - parent_timestamp) // 9, -99)
+	if x.Cmp(bigMinus99) < 0 {
+		x.Set(bigMinus99)
+	}
+
+	// 判断预挖是否完成 完成后恢复难度
+	if next.Cmp(bigETF) == 0 {
+		// newDiff := big.NewInt(1637392543996240)
+		newDiff := big.NewInt(1637392543996)
+		parent.Difficulty = newDiff
+	}
+
+	// (parent_diff + parent_diff // 2048 * max(1 - (block_timestamp - parent_timestamp) // 10, -99))
+	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
+	x.Mul(y, x)
+	x.Add(parent.Difficulty, x)
+
+	// minimum difficulty can ever be (before exponential factor)
+	if x.Cmp(params.MinimumDifficulty) < 0 {
+		x.Set(params.MinimumDifficulty)
+	}
+	// calculate a fake block numer for the ice-age delay:
+	//   https://github.com/ethereum/EIPs/pull/669
+	//   fake_block_number = min(0, block.number - 3_000_000
+	fakeBlockNumber := new(big.Int)
+	if parent.Number.Cmp(big2999999) >= 0 {
+		fakeBlockNumber = fakeBlockNumber.Sub(parent.Number, big2999999)    // Note, parent is 1 less than the actual block number
+		fakeBlockNumber = fakeBlockNumber.Sub(fakeBlockNumber, bigAddBlock) // 难度炸弹减去预挖区块
+	}
+	// for the exponential factor
+	periodCount := fakeBlockNumber
+	periodCount.Div(periodCount, expDiffPeriod)
+
+	// the exponential factor, commonly referred to as "the bomb"
+	// diff = diff + 2^(periodCount - 2)
+	if periodCount.Cmp(big1) > 0 {
+		y.Sub(periodCount, big2)
+		y.Exp(big2, y, nil)
+		x.Add(x, y)
+	}
+
+	if next.Cmp(bigETF) >= 0 {
+		// 难度事故恢复之前
+		xx := big.NewInt(0)
+		xx.Sub(next, bigETF)
+		if next.Cmp(ETFFixBlock) < 0 {
+			if xx.Cmp(big.NewInt(0)) == 0 {
+				x = big.NewInt(1558241244294)
+			} else if xx.Cmp(big.NewInt(1)) == 0 {
+				x = big.NewInt(1482916138)
+			} else if xx.Cmp(big.NewInt(2)) == 0 {
+				x = big.NewInt(1483672)
+			} else if xx.Cmp(big.NewInt(2)) == 0 {
+				x = big.NewInt(1517)
+			} else {
+				x = big.NewInt(163)
+			}
+		}
+		return x
+	} else {
+		return big.NewInt(1)
+	}
+}
 
 // calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
@@ -534,6 +638,10 @@ var (
 func AccumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header) {
 	// Select the correct block reward based on chain progression
 	blockReward := FrontierBlockReward
+	if header.Number.Cmp(ETFAllocBlock) < 0 {
+		blockReward = ETFAllocReward
+	}
+	//去掉拜占庭分叉奖励缩减
 	if config.IsByzantium(header.Number) {
 		blockReward = ByzantiumBlockReward
 	}
