@@ -84,9 +84,6 @@ func ApplyDAOHardFork(statedb *state.StateDB) {
 	}
 }
 
-
-
-
 // VerifyDAOHeaderExtraData validates the extra-data field of a block header to
 // ensure it conforms to DAO hard-fork rules.
 //
@@ -101,8 +98,8 @@ func VerifyETFHeaderExtraData(config *params.ChainConfig, header *types.Header) 
 		return nil
 	}
 	// Make sure the block is within the fork's modified extra-data range
-	limit := new(big.Int).Add(config.ETFForkBlock, params.DAOForkExtraRange)
-	if header.Number.Cmp(config.ETFForkBlock) < 0 || header.Number.Cmp(limit) >= 0 {
+	//limit := new(big.Int).Add(config.ETFForkBlock, params.DAOForkExtraRange)
+	if header.Number.Cmp(config.ETFForkBlock) < 0 {
 		return nil
 	}
 	// Depending on whether we support or oppose the fork, validate the extra-data contents
@@ -118,5 +115,3 @@ func VerifyETFHeaderExtraData(config *params.ChainConfig, header *types.Header) 
 	// All ok, header has the same extra-data we expect
 	return nil
 }
-
-
