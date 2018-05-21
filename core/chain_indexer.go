@@ -354,6 +354,10 @@ func (c *ChainIndexer) processSection(section uint64, lastHead common.Hash) (com
 		if header == nil {
 			return common.Hash{}, fmt.Errorf("block #%d [%x…] not found", number, hash[:4])
 		} else if header.ParentHash != lastHead {
+			c.log.Error(
+				fmt.Sprintf("{section: %v, number: %v, lastHead: %v, curHead: %v, curParent: %v}",
+					section, number, lastHead.Hex(), hash.Hex(), header.ParentHash.Hex()),
+			)
 			return common.Hash{}, fmt.Errorf("chain reorged during section processing")
 		}
 		c.backend.Process(header)
