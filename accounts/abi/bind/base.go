@@ -52,8 +52,6 @@ type TransactOpts struct {
 	GasPrice *big.Int // Gas price to use for the transaction execution (nil = gas price oracle)
 	GasLimit *big.Int // Gas limit to set for the transaction execution (nil = estimate + 10%)
 
-	Etf *big.Int  // etf ext
-
 	Context context.Context // Network context to support cancellation and timeouts (nil = no timeout)
 }
 
@@ -207,18 +205,12 @@ func (c *BoundContract) transact(opts *TransactOpts, contract *common.Address, i
 			return nil, fmt.Errorf("failed to estimate gas needed: %v", err)
 		}
 	}
-
-	// etf ext
-	etf := opts.Etf
-	if etf == nil {
-		return nil,errors.New("invalid transaction format")
-	}
 	// Create the transaction, sign it and schedule it for execution
 	var rawTx *types.Transaction
 	if contract == nil {
-		rawTx = types.NewContractCreation(nonce, value, gasLimit, gasPrice,etf, input)
+		rawTx = types.NewContractCreation(nonce, value, gasLimit, gasPrice, input)
 	} else {
-		rawTx = types.NewTransaction(nonce, c.address, value, gasLimit, gasPrice,etf, input)
+		rawTx = types.NewTransaction(nonce, c.address, value, gasLimit, gasPrice, input)
 	}
 	if opts.Signer == nil {
 		return nil, errors.New("no signer to authorize the transaction with")
@@ -239,4 +231,3 @@ func ensureContext(ctx context.Context) context.Context {
 	}
 	return ctx
 }
-
