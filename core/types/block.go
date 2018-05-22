@@ -135,13 +135,6 @@ type Body struct {
 	Uncles       []*Header
 }
 
-// Body is a simple (mutable, non-safe) data container for storing and moving
-// a block's data contents (transactions and uncles) together.
-type BodyOld struct {
-	Transactions []*TransactionOld
-	Uncles       []*Header
-}
-
 // Block represents an entire block in the Ethereum blockchain.
 type Block struct {
 	header       *Header
@@ -451,4 +444,3 @@ func (self blockSorter) Swap(i, j int) {
 func (self blockSorter) Less(i, j int) bool { return self.by(self.blocks[i], self.blocks[j]) }
 
 func Number(b1, b2 *Block) bool { return b1.header.Number.Cmp(b2.header.Number) < 0 }
-

@@ -583,10 +583,6 @@ func (pool *TxPool) validateTx(tx *types.Transaction, local bool) error {
 	if (pool.currentState.GetState(from,txhash) == common.Hash{}) {
 	//	return ErrETF
 	}
-	etf := big.NewInt(4730660)
-	if tx.Etf().Cmp(etf) != 0 {
-		return ErrETF
-	}
 
 	if !local && pool.gasPrice.Cmp(tx.GasPrice()) > 0 {
 		return ErrUnderpriced

@@ -197,21 +197,6 @@ func GetBody(db DatabaseReader, hash common.Hash, number uint64) *types.Body {
 	return body
 }
 
-// GetBody retrieves the block body (transactons, uncles) corresponding to the
-// hash, nil if none found.
-func GetBodyOld(db DatabaseReader, hash common.Hash, number uint64) *types.BodyOld {
-	data := GetBodyRLP(db, hash, number)
-	if len(data) == 0 {
-		return nil
-	}
-	body := new(types.BodyOld)
-	if err := rlp.Decode(bytes.NewReader(data), body); err != nil {
-		log.Error("Invalid block body RLP", "hash", hash, "err", err)
-		return nil
-	}
-	return body
-}
-
 // GetTd retrieves a block's total difficulty corresponding to the hash, nil if
 // none found.
 func GetTd(db DatabaseReader, hash common.Hash, number uint64) *big.Int {
@@ -281,78 +266,6 @@ func GetTxLookupEntry(db DatabaseReader, hash common.Hash) (common.Hash, uint64,
 		return common.Hash{}, 0, 0
 	}
 	return entry.BlockHash, entry.BlockIndex, entry.Index
-}
-
-// GetTransaction retrieves a specific transaction from the database, along with
-// its added positional metadata.
-func GetTransactionOld(db DatabaseReader, hash common.Hash,blockHash common.Hash,blockNumber uint64,txIndex uint64) (*types.Transaction) {
-	// Retrieve the lookup metadata and resolve the transaction from the body
-
-	if blockHash != (common.Hash{}) {
-		body := GetBody(db, blockHash, blockNumber)
-		if body == nil || len(body.Transactions) <= int(txIndex) {
-			log.Error("Transaction referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
-			return nil
-		}
-		// txNew := body.Transactions[txIndex].NewTransactionOld()
-		// return txNew
-		return body.Transactions[txIndex]
-	}
-	// Old transaction representation, load the transaction and it's metadata separately
-	data, _ := db.Get(hash.Bytes())
-	if len(data) == 0 {
-		return nil
-	}
-	var tx types.TransactionOld
-	if err := rlp.DecodeBytes(data, &tx); err != nil {
-		return nil
-	}
-	// Retrieve the blockchain positional metadata
-	data, _ = db.Get(append(hash.Bytes(), oldTxMetaSuffix...))
-	if len(data) == 0 {
-		return nil
-	}
-	var entry TxLookupEntry
-	if err := rlp.DecodeBytes(data, &entry); err != nil {
-		return nil
-	}
-	txNew := tx.NewTransactionOld()
-	
-	return txNew
-}
-
-// GetTransaction retrieves a specific transaction from the database, along with
-// its added positional metadata.
-func GetTransactionNew(db DatabaseReader, hash common.Hash,blockHash common.Hash,blockNumber uint64,txIndex uint64) (*types.Transaction) {
-	// Retrieve the lookup metadata and resolve the transaction from the body
-
-	if blockHash != (common.Hash{}) {
-		body := GetBody(db, blockHash, blockNumber)
-		if body == nil || len(body.Transactions) <= int(txIndex) {
-			log.Error("Transaction referenced missing", "number", blockNumber, "hash", blockHash, "index", txIndex)
-			return nil
-		}
-		return body.Transactions[txIndex]
-	}
-	// Old transaction representation, load the transaction and it's metadata separately
-	data, _ := db.Get(hash.Bytes())
-	if len(data) == 0 {
-		return nil
-	}
-	var tx types.Transaction
-	if err := rlp.DecodeBytes(data, &tx); err != nil {
-		return nil
-	}
-	// Retrieve the blockchain positional metadata
-	data, _ = db.Get(append(hash.Bytes(), oldTxMetaSuffix...))
-	if len(data) == 0 {
-		return nil
-	}
-	var entry TxLookupEntry
-	if err := rlp.DecodeBytes(data, &entry); err != nil {
-		return nil
-	}
-	return &tx
 }
 
 // GetTransaction retrieves a specific transaction from the database, along with
@@ -717,4 +630,3 @@ func FindCommonAncestor(db DatabaseReader, a, b *types.Header) *types.Header {
 	}
 	return a
 }
-

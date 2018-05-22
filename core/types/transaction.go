@@ -46,14 +46,6 @@ func deriveSigner(V *big.Int) Signer {
 	}
 }
 
-type TransactionOld struct {
-	data txdataOld
-	// caches
-	hash atomic.Value
-	size atomic.Value
-	from atomic.Value
-}
-
 type Transaction struct {
 	data txdata
 	// caches
@@ -77,27 +69,6 @@ type txdata struct {
 
 	// This is only used when marshaling to JSON.
 	Hash *common.Hash `json:"hash" rlp:"-"`
-
-	// ETF ext
-	Etf *big.Int        `json:"etf"  rlp:"-"`
-}
-
-type txdataOld struct {
-	AccountNonce uint64          `json:"nonce"    gencodec:"required"`
-	Price        *big.Int        `json:"gasPrice" gencodec:"required"`
-	GasLimit     *big.Int        `json:"gas"      gencodec:"required"`
-	Recipient    *common.Address `json:"to"       rlp:"nil"` // nil means contract creation
-	Amount       *big.Int        `json:"value"    gencodec:"required"`
-	Payload      []byte          `json:"input"    gencodec:"required"`
-
-	// Signature values
-	V *big.Int `json:"v" gencodec:"required"`
-	R *big.Int `json:"r" gencodec:"required"`
-	S *big.Int `json:"s" gencodec:"required"`
-
-	// This is only used when marshaling to JSON.
-	Hash *common.Hash `json:"hash" rlp:"-"`
-
 }
 
 type txdataMarshaling struct {
@@ -115,18 +86,6 @@ func NewTransaction(nonce uint64, to common.Address, amount, gasLimit, gasPrice 
 	return newTransaction(nonce, &to, amount, gasLimit, gasPrice, data)
 }
 
-// DecodeRLP implements rlp.Decoder
-func (txOld *TransactionOld) NewTransactionOld() *Transaction {
-	nonce := txOld.data.AccountNonce
-	to := txOld.data.Recipient
-	amount := txOld.data.Amount
-	gasLimit := txOld.data.GasLimit
-	gasPrice := txOld.data.Price
-	data,error := txOld.MarshalJSON()
-	fmt.Printf("********* %s \n",error)
-
-	return newTransaction(nonce, to, amount, gasLimit, gasPrice, data)
-}
 func NewContractCreation(nonce uint64, amount, gasLimit, gasPrice *big.Int, data []byte) *Transaction {
 	return newTransaction(nonce, nil, amount, gasLimit, gasPrice, data)
 }
@@ -145,7 +104,6 @@ func newTransaction(nonce uint64, to *common.Address, amount, gasLimit, gasPrice
 		V:            new(big.Int),
 		R:            new(big.Int),
 		S:            new(big.Int),
-		Etf:		  new(big.Int),
 	}
 	if amount != nil {
 		d.Amount.Set(amount)
@@ -156,7 +114,6 @@ func newTransaction(nonce uint64, to *common.Address, amount, gasLimit, gasPrice
 	if gasPrice != nil {
 		d.Price.Set(gasPrice)
 	}
-	d.Etf.Set(big.NewInt(4730660))
 
 	return &Transaction{data: d}
 }
@@ -180,7 +137,6 @@ func isProtectedV(V *big.Int) bool {
 	return true
 }
 
-
 // EncodeRLP implements rlp.Encoder
 func (tx *Transaction) EncodeRLP(w io.Writer) error {
 	return rlp.Encode(w, &tx.data)
@@ -198,13 +154,6 @@ func (tx *Transaction) DecodeRLP(s *rlp.Stream) error {
 }
 
 func (tx *Transaction) MarshalJSON() ([]byte, error) {
-	hash := tx.Hash()
-	data := tx.data
-	data.Hash = &hash
-	return data.MarshalJSON()
-}
-
-func (tx *TransactionOld) MarshalJSON() ([]byte, error) {
 	hash := tx.Hash()
 	data := tx.data
 	data.Hash = &hash
@@ -235,13 +184,6 @@ func (tx *Transaction) Data() []byte       { return common.CopyBytes(tx.data.Pay
 func (tx *Transaction) Gas() *big.Int      { return new(big.Int).Set(tx.data.GasLimit) }
 func (tx *Transaction) GasPrice() *big.Int { return new(big.Int).Set(tx.data.Price) }
 func (tx *Transaction) Value() *big.Int    { return new(big.Int).Set(tx.data.Amount) }
-func (tx *Transaction) Etf() *big.Int    { 
-	if(tx.data.Etf!=nil) {
-		return new(big.Int).Set(tx.data.Etf) 
-	} else{
-		return big.NewInt(0)
-	}
-}
 func (tx *Transaction) Nonce() uint64      { return tx.data.AccountNonce }
 func (tx *Transaction) CheckNonce() bool   { return true }
 
@@ -259,17 +201,6 @@ func (tx *Transaction) To() *common.Address {
 // Hash hashes the RLP encoding of tx.
 // It uniquely identifies the transaction.
 func (tx *Transaction) Hash() common.Hash {
-	if hash := tx.hash.Load(); hash != nil {
-		return hash.(common.Hash)
-	}
-	v := rlpHash(tx)
-	tx.hash.Store(v)
-	return v
-}
-
-// Hash hashes the RLP encoding of tx.
-// It uniquely identifies the transaction.
-func (tx *TransactionOld) Hash() common.Hash {
 	if hash := tx.hash.Load(); hash != nil {
 		return hash.(common.Hash)
 	}
@@ -538,4 +469,3 @@ func (m Message) Gas() *big.Int        { return m.gasLimit }
 func (m Message) Nonce() uint64        { return m.nonce }
 func (m Message) Data() []byte         { return m.data }
 func (m Message) CheckNonce() bool     { return m.checkNonce }
-
