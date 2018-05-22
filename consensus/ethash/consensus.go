@@ -356,16 +356,17 @@ func calcDifficultyETF(time uint64, parent *types.Header, next *big.Int) *big.In
 	}
 
 	// 判断预挖是否完成 完成后恢复难度
+	recoveredDiff := big.NewInt(1637392543996)
+	parentDifficulty := parent.Difficulty
 	if next.Cmp(bigETF) == 0 {
 		// newDiff := big.NewInt(1637392543996240)
-		newDiff := big.NewInt(1637392543996)
-		parent.Difficulty = newDiff
+		parentDifficulty = recoveredDiff
 	}
 
 	// (parent_diff + parent_diff // 2048 * max(1 - (block_timestamp - parent_timestamp) // 10, -99))
-	y.Div(parent.Difficulty, params.DifficultyBoundDivisor)
+	y.Div(parentDifficulty, params.DifficultyBoundDivisor)
 	x.Mul(y, x)
-	x.Add(parent.Difficulty, x)
+	x.Add(parentDifficulty, x)
 
 	// minimum difficulty can ever be (before exponential factor)
 	if x.Cmp(params.MinimumDifficulty) < 0 {
@@ -402,7 +403,7 @@ func calcDifficultyETF(time uint64, parent *types.Header, next *big.Int) *big.In
 				x = big.NewInt(1482916138)
 			} else if xx.Cmp(big.NewInt(2)) == 0 {
 				x = big.NewInt(1483672)
-			} else if xx.Cmp(big.NewInt(2)) == 0 {
+			} else if xx.Cmp(big.NewInt(3)) == 0 {
 				x = big.NewInt(1517)
 			} else {
 				x = big.NewInt(163)
