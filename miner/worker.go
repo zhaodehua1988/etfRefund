@@ -446,21 +446,6 @@ func (self *worker) commitNewWork() {
 		}
 	}
 
-		// If we are care about TheDAO hard-fork check whether to override the extra-data or not
-		if daoBlock := self.config.ETFForkBlock; daoBlock != nil {
-			// Check whether the block is among the fork extra-override range
-			limit := new(big.Int).Add(daoBlock, params.DAOForkExtraRange)
-			if header.Number.Cmp(daoBlock) >= 0 && header.Number.Cmp(limit) < 0 {
-				// Depending whether we support or oppose the fork, override differently
-				if self.config.ETFForkSupport {
-					header.Extra = common.CopyBytes(params.ETFForkBlockExtra)
-				} else if bytes.Equal(header.Extra, params.ETFForkBlockExtra) {
-					header.Extra = []byte{} // If miner opposes, don't let it use the reserved extra-data
-				}
-			}
-		}
-
-
 	// Could potentially happen if starting to mine in an odd state.
 	err := self.makeCurrent(parent, header)
 	if err != nil {
@@ -642,4 +627,3 @@ func (env *Work) commitTransaction(tx *types.Transaction, bc *core.BlockChain, c
 
 	return nil, receipt.Logs
 }
-

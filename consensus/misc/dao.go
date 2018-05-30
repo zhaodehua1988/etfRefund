@@ -83,35 +83,3 @@ func ApplyDAOHardFork(statedb *state.StateDB) {
 		statedb.SetBalance(addr, new(big.Int))
 	}
 }
-
-// VerifyDAOHeaderExtraData validates the extra-data field of a block header to
-// ensure it conforms to DAO hard-fork rules.
-//
-// DAO hard-fork extension to the header validity:
-//   a) if the node is no-fork, do not accept blocks in the [fork, fork+10) range
-//      with the fork specific extra-data set
-//   b) if the node is pro-fork, require blocks in the specific range to have the
-//      unique extra-data set.
-func VerifyETFHeaderExtraData(config *params.ChainConfig, header *types.Header) error {
-	// Short circuit validation if the node doesn't care about the DAO fork
-	//if config.ETFForkBlock == nil {
-	//	return nil
-	//}
-	//// Make sure the block is within the fork's modified extra-data range
-	////limit := new(big.Int).Add(config.ETFForkBlock, params.DAOForkExtraRange)
-	//if header.Number.Cmp(config.ETFForkBlock) < 0 {
-	//	return nil
-	//}
-	//// Depending on whether we support or oppose the fork, validate the extra-data contents
-	//if config.ETFForkSupport {
-	//	if !bytes.Equal(header.Extra, params.ETFForkBlockExtra) {
-	//		return ErrBadProDAOExtra
-	//	}
-	//} else {
-	//	if bytes.Equal(header.Extra, params.ETFForkBlockExtra) {
-	//		return ErrBadNoDAOExtra
-	//	}
-	//}
-	// All ok, header has the same extra-data we expect
-	return nil
-}
