@@ -180,14 +180,14 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	newcfg := genesis.configOrDefault(stored)
 	storedcfg := rawdb.ReadChainConfig(db, stored)
 	if storedcfg == nil {
-			log.Warn("Found genesis block without chain config")
+		log.Warn("Found genesis block without chain config")
 		rawdb.WriteChainConfig(db, stored, newcfg)
 		return newcfg, stored, nil
 	}
 	//a patch: ethereum genesis has no field ETFForkBlock
+	//TODO delete this after successfull init ETFFORKBLOCK in db
 	if storedcfg.ETFForkBlock == nil {
 		storedcfg.ETFForkBlock = newcfg.ETFForkBlock
-		storedcfg.ETFForkSupport = newcfg.ETFForkSupport
 	}
 	// Special case: don't change the existing config of a non-mainnet chain if no new
 	// config is supplied. These chains would get AllProtocolChanges (and a compat error)

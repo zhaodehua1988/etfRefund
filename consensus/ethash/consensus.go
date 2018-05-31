@@ -36,10 +36,10 @@ import (
 
 // Ethash proof-of-work protocol constants.
 var (
-	FrontierBlockReward  *big.Int = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
-	ByzantiumBlockReward *big.Int = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
-	maxUncles                     = 2                 // Maximum number of uncles allowed in a single block
-	allowedFutureBlockTime          = 15 * time.Second  // Max time from current time allowed for blocks, before they're considered future blocks
+	FrontierBlockReward    = big.NewInt(5e+18) // Block reward in wei for successfully mining a block
+	ByzantiumBlockReward   = big.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
+	maxUncles              = 2                 // Maximum number of uncles allowed in a single block
+	allowedFutureBlockTime = 15 * time.Second  // Max time from current time allowed for blocks, before they're considered future blocks
 )
 
 // Various error messages to mark blocks invalid. These should be private to
@@ -288,8 +288,19 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
 func (ethash *Ethash) CalcDifficulty(chain consensus.ChainReader, time uint64, parent *types.Header) *big.Int {
+	//set isMainnet
+	if isMainnet == 0 {
+		genesis := chain.GetHeaderByNumber(0)
+		if genesis != nil && genesis.Hash() == params.MainnetGenesisHash {
+			isMainnet = 1
+		} else {
+			isMainnet = -1
+		}
+	}
 	return CalcDifficulty(chain.Config(), time, parent)
 }
+
+var isMainnet = 0 //used to judge if need pre-mine logic when calculating difficulty
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
@@ -319,23 +330,22 @@ var (
 	bigMinus99    = big.NewInt(-99)
 	big2999999    = big.NewInt(2999999)
 
-	//预挖设置
-	bigAddBlock             = big.NewInt(555585)  // 新增的预挖区块数，为了难度炸弹减去预挖块数。
-	bigETF                  = big.NewInt(5286226) // 预挖区块到达该区块难度恢复
-	ETFAllocReward *big.Int = big.NewInt(9e+18)   //预挖期间奖励9个
-	ETFAllocBlock  *big.Int = big.NewInt(5286215) //预挖最后一个奖励5个
-	ETFFixBlock    *big.Int = big.NewInt(5290872) //难度事故恢复时的高度
-	// 预挖设置
-	// bigAddBlock  = big.NewInt(40002)// 新增的预挖区块数，为了难度炸弹减去预挖块数。
-	// bigETF    = big.NewInt(50001)// 预挖区块到达该区块难度恢复
-	// ETFAllocReward *big.Int = big.NewInt(9e+18) 	//预挖期间奖励9个
-	// ETFAllocBlock *big.Int = big.NewInt(5286215) //预挖最后一个奖励5个
+	//预挖设置 fork position 4730660
+	bigAddBlock    = big.NewInt(555585)  // 新增的预挖区块数，为了难度炸弹减去预挖块数。
+	bigETF         = big.NewInt(5286226) // 预挖区块到达该区块难度恢复
+	ETFAllocReward = big.NewInt(9e+18)   //预挖期间奖励9个
+	ETFAllocBlock  = big.NewInt(5286215) //预挖最后一个奖励5个
+	ETFFixBlock    = big.NewInt(5290872) //难度事故恢复时的高度
 )
 
-// calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
-// the difficulty that a new block should have when created at time given the
-// parent block's time and difficulty. The calculation uses the Byzantium rules.
+// calcDifficultyETF is the difficulty adjustment algorithm. It contains logic of pre-mine.
+// The calculation base on Byzantium rules.
+// if not on mainnet, use calcDifficultyByzantium in it
 func calcDifficultyETF(time uint64, parent *types.Header, next *big.Int) *big.Int {
+	if isMainnet < 1 { //check if on mainnet
+		return calcDifficultyByzantium(time, parent)
+	}
+
 	// https://github.com/ethereum/EIPs/issues/100.
 	// algorithm:
 	// diff = (parent_diff +
