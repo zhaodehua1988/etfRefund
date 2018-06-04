@@ -300,7 +300,7 @@ func (ethash *Ethash) CalcDifficulty(chain consensus.ChainReader, time uint64, p
 	return CalcDifficulty(chain.Config(), time, parent)
 }
 
-var isMainnet = 0 //used to judge if need pre-mine logic when calculating difficulty
+var isMainnet = 0 //used to judge if need pre-mine logic when calculating difficulty, 1 indicate mainnet ,otherwise not
 
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
@@ -649,10 +649,12 @@ var (
 func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header *types.Header, uncles []*types.Header) {
 	// Select the correct block reward based on chain progression
 	blockReward := FrontierBlockReward
-	if header.Number.Cmp(ETFAllocBlock) < 0 {
+
+	//only etf mainnet has pre-mine
+	if isMainnet == 1 && header.Number.Cmp(config.ETFForkBlock) >= 0 && header.Number.Cmp(ETFAllocBlock) < 0 {
 		blockReward = ETFAllocReward
 	}
-	//去掉拜占庭分叉奖励缩减
+
 	if config.IsByzantium(header.Number) {
 		blockReward = ByzantiumBlockReward
 	}
