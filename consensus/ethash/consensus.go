@@ -293,7 +293,7 @@ func (ethash *Ethash) CalcDifficulty(chain consensus.ChainReader, time uint64, p
 		genesis := chain.GetHeaderByNumber(0)
 		if genesis != nil && genesis.Hash() == params.MainnetGenesisHash {
 			isMainnet = 1
-		} else {
+		} else if genesis != nil {
 			isMainnet = -1
 		}
 	}
