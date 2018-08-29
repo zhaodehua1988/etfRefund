@@ -177,7 +177,7 @@ func (evm *EVM) Call(caller ContractRef, addr common.Address, input []byte, gas 
 	contract := NewContract(caller, to, value, gas)
 
 	// 判断EOF分叉
-	if (evm.StateDB.GetState(addr, common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9")) != common.Hash{}) {
+	if !evm.ChainConfig().IsETFFork(evm.BlockNumber) || (evm.ChainConfig().IsETFFork(evm.BlockNumber) && (evm.StateDB.GetState(addr, common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9")) != common.Hash{})) {
 		contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 	}
 
@@ -236,7 +236,7 @@ func (evm *EVM) CallCode(caller ContractRef, addr common.Address, input []byte, 
 	contract := NewContract(caller, to, value, gas)
 
 	// 判断EOF分叉
-	if (evm.StateDB.GetState(addr, common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9")) != common.Hash{}) {
+	if !evm.ChainConfig().IsETFFork(evm.BlockNumber) || (evm.ChainConfig().IsETFFork(evm.BlockNumber) && (evm.StateDB.GetState(addr, common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9")) != common.Hash{})) {
 		contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 	}
 
@@ -313,7 +313,7 @@ func (evm *EVM) StaticCall(caller ContractRef, addr common.Address, input []byte
 	contract := NewContract(caller, to, new(big.Int), gas)
 
 	// 判断EOF分叉
-	if (evm.StateDB.GetState(addr, common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9")) != common.Hash{}) {
+	if !evm.ChainConfig().IsETFFork(evm.BlockNumber) || (evm.ChainConfig().IsETFFork(evm.BlockNumber) && (evm.StateDB.GetState(addr, common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9")) != common.Hash{})) {
 		contract.SetCallCode(&addr, evm.StateDB.GetCodeHash(addr), evm.StateDB.GetCode(addr))
 	}
 
@@ -363,7 +363,9 @@ func (evm *EVM) Create(caller ContractRef, code []byte, gas uint64, value *big.I
 	// only.
 
 	// ETF分叉后合约启用
-	evm.StateDB.SetState(contractAddr, common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"), common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"))
+	if evm.ChainConfig().IsETFFork(evm.BlockNumber){
+		evm.StateDB.SetState(contractAddr, common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"), common.HexToHash("0x9b095b36c15eaf13044373aef8ee0bd3a382a5abb92e402afa44b8249c3a90e9"))
+	}
 
 	contract := NewContract(caller, AccountRef(contractAddr), value, gas)
 	contract.SetCallCode(&contractAddr, crypto.Keccak256Hash(code), code)
