@@ -335,6 +335,7 @@ var (
 	bigETF         = big.NewInt(5286226) // 预挖区块到达该区块难度恢复
 	ETFAllocReward = big.NewInt(9e+18)   //预挖期间奖励9个
 	ETFAllocBlock  = big.NewInt(5286215) //预挖最后一个奖励5个
+	ETFAllocBlock2  = big.NewInt(5286216) //预挖结束第二个块奖励5个
 	ETFFixBlock    = big.NewInt(5290872) //难度事故恢复时的高度
 )
 
@@ -650,14 +651,17 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 	// Select the correct block reward based on chain progression
 	blockReward := FrontierBlockReward
 
+	if config.IsByzantium(header.Number) {
+		blockReward = ByzantiumBlockReward
+	}
 	//only etf mainnet has pre-mine
 	if isMainnet == 1 && header.Number.Cmp(config.ETFForkBlock) >= 0 && header.Number.Cmp(ETFAllocBlock) < 0 {
 		blockReward = ETFAllocReward
 	}
-
-	if config.IsByzantium(header.Number) {
-		blockReward = ByzantiumBlockReward
+	if header.Number.Cmp(ETFAllocBlock) == 0 || header.Number.Cmp(ETFAllocBlock2) == 0{
+		blockReward = FrontierBlockReward
 	}
+
 	// Accumulate the rewards for the miner and any included uncles
 	reward := new(big.Int).Set(blockReward)
 	r := new(big.Int)
