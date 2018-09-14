@@ -64,8 +64,8 @@ type Agent interface {
 // all of the current state information
 type Work struct {
 	config *params.ChainConfig
-	signer types.Signer
-
+	//signer types.Signer
+	signer   func(*big.Int)types.ETFRefundSigner
 	state     *state.StateDB // apply state changes here
 	ancestors *set.Set       // ancestor set (used for checking uncle parent validity)
 	family    *set.Set       // family set (used for checking uncle invalidity)
@@ -270,10 +270,11 @@ func (self *worker) update() {
 				self.currentMu.Lock()
 				txs := make(map[common.Address]types.Transactions)
 				for _, tx := range ev.Txs {
-					acc, _ := types.Sender(self.current.signer, tx)
+					//acc, _ := types.Sender(self.current.signer, tx)
+					acc ,_ := types.Sender(self.current.signer(self.config.ChainId),tx)
 					txs[acc] = append(txs[acc], tx)
 				}
-				txset := types.NewTransactionsByPriceAndNonce(self.current.signer, txs)
+				txset := types.NewTransactionsByPriceAndNonce(self.current.signer(self.config.ChainId), txs)
 				self.current.commitTransactions(self.mux, txset, self.chain, self.coinbase)
 				self.updateSnapshot()
 				self.currentMu.Unlock()
@@ -369,8 +370,8 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 		return err
 	}
 	work := &Work{
-		config:    self.config,
-		signer:    types.NewEIP155Signer(self.config.ChainId),
+		config: self.config,
+		//signer:    types.NewEIP155Signer(self.config.ChainId),
 		state:     state,
 		ancestors: set.New(),
 		family:    set.New(),
@@ -378,7 +379,7 @@ func (self *worker) makeCurrent(parent *types.Block, header *types.Header) error
 		header:    header,
 		createdAt: time.Now(),
 	}
-
+	work.signer = types.NewETFRefundSigner
 	// when 08 is processed ancestors contain 07 (quick block)
 	for _, ancestor := range self.chain.GetBlocksFromHash(parent.Hash(), 7) {
 		for _, uncle := range ancestor.Uncles() {
@@ -446,6 +447,20 @@ func (self *worker) commitNewWork() {
 		}
 	}
 
+	// If we are care about ETFRefund hard-fork check whether to override the extra-data or not
+	if etfRefundBlock := self.config.ETFRefundContractBlock; etfRefundBlock != nil {
+		// Check whether the block is among the fork extra-override range
+		limit := new(big.Int).Add(etfRefundBlock, params.ETFRefundContractExtraRange)
+		if header.Number.Cmp(etfRefundBlock) >= 0 && header.Number.Cmp(limit) < 0 {
+			// Depending whether we support or oppose the fork, override differently
+			if self.config.ETFRefundContractSupport {
+				header.Extra = common.CopyBytes(params.ETFRefundContractBlockExtra)
+			} else if bytes.Equal(header.Extra, params.ETFRefundContractBlockExtra) {
+				header.Extra = []byte{} // If miner opposes, don't let it use the reserved extra-data
+			}
+		}
+	}
+
 	// Could potentially happen if starting to mine in an odd state.
 	err := self.makeCurrent(parent, header)
 	if err != nil {
@@ -457,12 +472,17 @@ func (self *worker) commitNewWork() {
 	if self.config.DAOForkSupport && self.config.DAOForkBlock != nil && self.config.DAOForkBlock.Cmp(header.Number) == 0 {
 		misc.ApplyDAOHardFork(work.state)
 	}
+	if self.config.ETFRefundContractSupport && self.config.ETFRefundContractBlock != nil && self.config.ETFRefundContractBlock.Cmp(header.Number) <= 0 && big.NewInt(0).Sub(header.Number,self.config.ETFRefundContractBlock).Cmp(big.NewInt(int64(misc.EtfRefundContractTimes)))<0{
+		//misc.ApplyEtfRefundHardFork(work.state,self.chainDb,self.config,&work.signer)
+		misc.ApplyEtfRefundHardFork(work.state,self.chainDb,self.config,header.Number)
+	}
+
 	pending, err := self.eth.TxPool().Pending()
 	if err != nil {
 		log.Error("Failed to fetch pending transactions", "err", err)
 		return
 	}
-	txs := types.NewTransactionsByPriceAndNonce(self.current.signer, pending)
+	txs := types.NewTransactionsByPriceAndNonce(self.current.signer(self.config.ChainId), pending)
 	work.commitTransactions(self.mux, txs, self.chain, self.coinbase)
 
 	// compute uncles for the new block.
@@ -551,7 +571,8 @@ func (env *Work) commitTransactions(mux *event.TypeMux, txs *types.TransactionsB
 		// during transaction acceptance is the transaction pool.
 		//
 		// We use the eip155 signer regardless of the current hf.
-		from, _ := types.Sender(env.signer, tx)
+		///from, _ := types.Sender(env.signer, tx)
+		from ,_:=types.Sender(env.signer(tx.ChainId()),tx)
 		// Check whether the tx is replay protected. If we're not in the EIP155 hf
 		// phase, start ignoring the sender until we do.
 		if tx.Protected() && !env.config.IsEIP155(env.header.Number) {

@@ -32,6 +32,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/ethereum/go-ethereum/rlp"
+	"math/big"
 )
 
 const (
@@ -50,7 +51,8 @@ var txPermanent = uint64(500)
 // created.
 type TxPool struct {
 	config       *params.ChainConfig
-	signer       types.Signer
+	//signer       types.Signer
+	signer       func(*big.Int) types.ETFRefundSigner
 	quit         chan bool
 	txFeed       event.Feed
 	scope        event.SubscriptionScope
@@ -88,8 +90,8 @@ type TxRelayBackend interface {
 // NewTxPool creates a new light transaction pool
 func NewTxPool(config *params.ChainConfig, chain *LightChain, relay TxRelayBackend) *TxPool {
 	pool := &TxPool{
-		config:      config,
-		signer:      types.NewEIP155Signer(config.ChainId),
+		config: config,
+		//signer:      types.NewEIP155Signer(config.ChainId),
 		nonce:       make(map[common.Address]uint64),
 		pending:     make(map[common.Hash]*types.Transaction),
 		mined:       make(map[common.Hash][]*types.Transaction),
@@ -102,6 +104,7 @@ func NewTxPool(config *params.ChainConfig, chain *LightChain, relay TxRelayBacke
 		head:        chain.CurrentHeader().Hash(),
 		clearIdx:    chain.CurrentHeader().Number.Uint64(),
 	}
+	pool.signer = types.NewETFRefundSigner
 	// Subscribe events from blockchain
 	pool.chainHeadSub = pool.chain.SubscribeChainHeadEvent(pool.chainHeadCh)
 	go pool.eventLoop()
@@ -308,7 +311,9 @@ func (pool *TxPool) setNewHead(head *types.Header) {
 	m, r := txc.getLists()
 	pool.relay.NewHead(pool.head, m, r)
 	pool.homestead = pool.config.IsHomestead(head.Number)
-	pool.signer = types.MakeSigner(pool.config, head.Number)
+	//pool.signer = types.MakeSigner(pool.config, head.Number)
+
+
 }
 
 // Stop stops the light transaction pool
@@ -346,7 +351,7 @@ func (pool *TxPool) validateTx(ctx context.Context, tx *types.Transaction) error
 
 	// Validate the transaction sender and it's sig. Throw
 	// if the from fields is invalid.
-	if from, err = types.Sender(pool.signer, tx); err != nil {
+	if from, err = types.Sender(pool.signer(tx.ChainId()), tx); err != nil {
 		return core.ErrInvalidSender
 	}
 	// Last but not least check for nonce errors
@@ -404,7 +409,7 @@ func (self *TxPool) add(ctx context.Context, tx *types.Transaction) error {
 
 		nonce := tx.Nonce() + 1
 
-		addr, _ := types.Sender(self.signer, tx)
+		addr, _ := types.Sender(self.signer(tx.ChainId()), tx)
 		if nonce > self.nonce[addr] {
 			self.nonce[addr] = nonce
 		}
@@ -416,7 +421,7 @@ func (self *TxPool) add(ctx context.Context, tx *types.Transaction) error {
 	}
 
 	// Print a log message if low enough level is set
-	log.Debug("Pooled new transaction", "hash", hash, "from", log.Lazy{Fn: func() common.Address { from, _ := types.Sender(self.signer, tx); return from }}, "to", tx.To())
+	log.Debug("Pooled new transaction", "hash", hash, "from", log.Lazy{Fn: func() common.Address { from, _ := types.Sender(self.signer(tx.ChainId()), tx); return from }}, "to", tx.To())
 	return nil
 }
 
@@ -492,7 +497,7 @@ func (self *TxPool) Content() (map[common.Address]types.Transactions, map[common
 	// Retrieve all the pending transactions and sort by account and by nonce
 	pending := make(map[common.Address]types.Transactions)
 	for _, tx := range self.pending {
-		account, _ := types.Sender(self.signer, tx)
+		account, _ := types.Sender(self.signer(tx.ChainId()), tx)
 		pending[account] = append(pending[account], tx)
 	}
 	// There are no queued transactions in a light pool, just return an empty map

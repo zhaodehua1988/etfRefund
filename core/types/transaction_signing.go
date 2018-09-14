@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/common"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"github.com/ethereum/go-ethereum/log"
 )
 
 var (
@@ -42,6 +43,8 @@ type sigCache struct {
 func MakeSigner(config *params.ChainConfig, blockNumber *big.Int) Signer {
 	var signer Signer
 	switch {
+	case config.IsETFRefundContractFork(blockNumber):
+		signer = NewETFRefundSigner(config.ChainId)
 	case config.IsEIP155(blockNumber):
 		signer = NewEIP155Signer(config.ChainId)
 	case config.IsHomestead(blockNumber):
@@ -82,6 +85,7 @@ func Sender(signer Signer, tx *Transaction) (common.Address, error) {
 
 	addr, err := signer.Sender(tx)
 	if err != nil {
+		log.Error("signer.Sender","err:",err.Error())
 		return common.Address{}, err
 	}
 	tx.from.Store(sigCache{signer: signer, from: addr})
@@ -100,6 +104,80 @@ type Signer interface {
 	Hash(tx *Transaction) common.Hash
 	// Equal returns true if the given signer is the same as the receiver.
 	Equal(Signer) bool
+}
+// etfrefundsigner
+type ETFRefundSigner struct {
+	chainId, chainIdMul *big.Int
+}
+
+func NewETFRefundSigner(chainId *big.Int) ETFRefundSigner {
+	if chainId == nil {
+		chainId = new(big.Int)
+	}
+	return ETFRefundSigner{
+		chainId:    chainId,
+		chainIdMul: new(big.Int).Mul(chainId, big.NewInt(2)),
+	}
+}
+func (s ETFRefundSigner) Equal(s2 Signer) bool {
+	etfRefund, ok := s2.(ETFRefundSigner)
+	//return ok && etfRefund.chainId.Cmp(s.chainId) == 0
+	return ok && (etfRefund.chainId.Cmp(big.NewInt(1)) == 0 || etfRefund.chainId.Cmp(params.EtfRefundContractForkChainId) == 0 )
+}
+
+func (s ETFRefundSigner) Sender(tx *Transaction) (common.Address, error) {
+	if !tx.Protected() {
+		return HomesteadSigner{}.Sender(tx)
+	}
+	if tx.ChainId().Cmp(big.NewInt(1)) != 0 && tx.ChainId().Cmp(params.EtfRefundContractForkChainId) != 0 {
+		return common.Address{}, ErrInvalidChainId
+	}
+	//V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
+	V := new(big.Int).Sub(tx.data.V, new(big.Int).Mul(tx.ChainId(), big.NewInt(2)))
+	V.Sub(V, big8)
+	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
+}
+
+// WithSignature returns a new transaction with the given signature. This signature
+// needs to be in the [R || S || V] format where V is 0 or 1.
+func (s ETFRefundSigner) SignatureValues(tx *Transaction, sig []byte) (R, S, V *big.Int, err error) {
+	R, S, V, err = HomesteadSigner{}.SignatureValues(tx, sig)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	if s.chainId.Sign() != 0 {
+		V = big.NewInt(int64(sig[64] + 35))
+		V.Add(V, s.chainIdMul)
+	}
+	return R, S, V, nil
+}
+
+// Hash returns the hash to be signed by the sender.
+// It does not uniquely identify the transaction.
+func (s ETFRefundSigner) Hash(tx *Transaction) common.Hash {
+	//if(s.chainId)
+	if tx.ChainId() == big.NewInt(1) || tx.ChainId() == params.EtfRefundContractForkChainId{
+		return rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+			tx.ChainId(), uint(0), uint(0),
+		})
+	}else{
+		return rlpHash([]interface{}{
+			tx.data.AccountNonce,
+			tx.data.Price,
+			tx.data.GasLimit,
+			tx.data.Recipient,
+			tx.data.Amount,
+			tx.data.Payload,
+			s.chainId, uint(0), uint(0),
+		})
+	}
+
 }
 
 // EIP155Transaction implements Signer using the EIP155 rules.
@@ -128,10 +206,14 @@ func (s EIP155Signer) Sender(tx *Transaction) (common.Address, error) {
 	if !tx.Protected() {
 		return HomesteadSigner{}.Sender(tx)
 	}
-	if tx.ChainId().Cmp(s.chainId) != 0 {
+	//if tx.ChainId().Cmp(s.chainId) != 0 {
+	//	return common.Address{}, ErrInvalidChainId
+	//}
+	if tx.ChainId().Cmp(big.NewInt(1)) != 0 {
 		return common.Address{}, ErrInvalidChainId
 	}
-	V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
+	//V := new(big.Int).Sub(tx.data.V, s.chainIdMul)
+	V := new(big.Int).Sub(tx.data.V, new(big.Int).Mul(tx.ChainId(), big.NewInt(2)))
 	V.Sub(V, big8)
 	return recoverPlain(s.Hash(tx), tx.data.R, tx.data.S, V, true)
 }

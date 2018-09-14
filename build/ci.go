@@ -79,6 +79,7 @@ var (
 		executablePath("rlpdump"),
 		executablePath("swarm"),
 		executablePath("wnode"),
+		executablePath("etf"),
 	}
 
 	// A debian package is created for all executables listed here.
@@ -114,6 +115,10 @@ var (
 		{
 			Name:        "wnode",
 			Description: "Ethereum Whisper diagnostic tool",
+		},
+		{
+			Name:        "etf",
+			Description: "etf cmd tool",
 		},
 	}
 

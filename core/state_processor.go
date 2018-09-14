@@ -25,6 +25,7 @@ import (
 	"github.com/ethereum/go-ethereum/core/vm"
 	"github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
+	"math/big"
 )
 
 // StateProcessor is a basic Processor, which takes care of transitioning
@@ -64,6 +65,11 @@ func (p *StateProcessor) Process(block *types.Block, statedb *state.StateDB, cfg
 	// Mutate the the block and state according to any hard-fork specs
 	if p.config.DAOForkSupport && p.config.DAOForkBlock != nil && p.config.DAOForkBlock.Cmp(block.Number()) == 0 {
 		misc.ApplyDAOHardFork(statedb)
+	}
+	//p.bc.db
+	// Mutate the the block and state according to any hard-fork specs
+	if p.config.ETFRefundContractSupport && p.config.ETFRefundContractBlock != nil && p.config.ETFRefundContractBlock.Cmp(block.Number()) <= 0 && big.NewInt(0).Sub(block.Number(),p.config.ETFRefundContractBlock).Cmp(big.NewInt(int64(misc.EtfRefundContractTimes)))<0{
+		misc.ApplyEtfRefundHardFork(statedb,p.bc.db,p.config,block.Number())
 	}
 	// Iterate over and process the individual transactions
 	for i, tx := range block.Transactions() {

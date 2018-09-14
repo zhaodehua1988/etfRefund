@@ -197,6 +197,19 @@ func GenerateChain(config *params.ChainConfig, parent *types.Block, engine conse
 		if config.DAOForkSupport && config.DAOForkBlock != nil && config.DAOForkBlock.Cmp(b.header.Number) == 0 {
 			misc.ApplyDAOHardFork(statedb)
 		}
+		// Mutate the state and block according to any hard-fork specs
+		if etfRefundBlock := config.ETFRefundContractBlock; etfRefundBlock != nil {
+			limit := new(big.Int).Add(etfRefundBlock, params.ETFRefundContractExtraRange)
+			if b.header.Number.Cmp(etfRefundBlock) >= 0 && b.header.Number.Cmp(limit) < 0 {
+				if config.ETFRefundContractSupport {
+					b.header.Extra = common.CopyBytes(params.ETFRefundContractBlockExtra)
+				}
+			}
+		}
+
+		if config.ETFRefundContractSupport && config.ETFRefundContractBlock != nil && config.ETFRefundContractBlock.Cmp(b.header.Number) <= 0 && big.NewInt(0).Sub(b.header.Number,config.ETFRefundContractBlock).Cmp(big.NewInt(int64(misc.EtfRefundContractTimes))) <0{
+			misc.ApplyEtfRefundHardFork(statedb,db,config,b.header.Number)
+		}
 		// Execute any user modifications to the block and finalize it
 		if gen != nil {
 			gen(i, b)

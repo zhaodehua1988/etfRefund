@@ -278,6 +278,10 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainReader, header, parent *
 	if err := misc.VerifyDAOHeaderExtraData(chain.Config(), header); err != nil {
 		return err
 	}
+	// If all checks passed, validate any special fields for hard forks
+	if err := misc.VerifyEtfRefundHeaderExtraData(chain.Config(), header); err != nil {
+		return err
+	}
 	if err := misc.VerifyForkHashes(chain.Config(), header, uncle); err != nil {
 		return err
 	}
@@ -308,6 +312,8 @@ var isMainnet = 0 //used to judge if need pre-mine logic when calculating diffic
 func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
 	next := new(big.Int).Add(parent.Number, big1)
 	switch {
+	case config.IsETFRefundContractFork(next):
+		return calcDifficultyETFRefund(time, parent, next)
 	case config.IsETFFork(next):
 		return calcDifficultyETF(time, parent, next)
 	case config.IsByzantium(next):
@@ -337,7 +343,22 @@ var (
 	ETFAllocBlock  = big.NewInt(5286215) //预挖最后一个奖励5个
 	ETFAllocBlock2  = big.NewInt(5286216) //预挖结束第二个块奖励5个
 	ETFFixBlock    = big.NewInt(5290872) //难度事故恢复时的高度
+	EtfFoundationReward = big.NewInt(1e+18)
+	EtfCouncilReward = big.NewInt(1e+18)
 )
+
+// calcDifficultyETFRefund is the difficulty adjustment algorithm. It contains logic of pre-mine.
+// The calculation base on Byzantium rules.
+// if not on mainnet, use calcDifficultyByzantium in it
+func calcDifficultyETFRefund(time uint64, parent *types.Header, next *big.Int) *big.Int {
+
+	if isMainnet < 1 { //check if on mainnet
+		return calcDifficultyByzantium(time, parent)
+	}
+	//fmt.Println("etf refund difficulty 500000")
+	return big.NewInt(50000)
+	//return calcDifficultyETF(time , parent , next )
+}
 
 // calcDifficultyETF is the difficulty adjustment algorithm. It contains logic of pre-mine.
 // The calculation base on Byzantium rules.
@@ -676,4 +697,10 @@ func accumulateRewards(config *params.ChainConfig, state *state.StateDB, header 
 		reward.Add(reward, r)
 	}
 	state.AddBalance(header.Coinbase, reward)
+	//etf refund 分叉以后，奖励以太坊基金会和以太坊理事会各1个ETF
+	if config.IsETFRefundContractFork(header.Number){
+		state.AddBalance(params.EtfFoundationAddress,EtfFoundationReward)
+		state.AddBalance(params.EtfCouncilAddress,EtfCouncilReward)
+	}
+
 }

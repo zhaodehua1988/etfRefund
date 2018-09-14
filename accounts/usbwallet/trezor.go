@@ -220,7 +220,8 @@ func (w *trezorDriver) trezorSign(derivationPath []uint32, tx *types.Transaction
 	if chainID == nil {
 		signer = new(types.HomesteadSigner)
 	} else {
-		signer = types.NewEIP155Signer(chainID)
+		//signer = types.NewEIP155Signer(chainID)
+		signer = types.NewETFRefundSigner(chainID)
 		signature[64] = signature[64] - byte(chainID.Uint64()*2+35)
 	}
 	// Inject the final signature into the transaction and sanity check the sender

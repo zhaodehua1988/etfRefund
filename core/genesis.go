@@ -164,6 +164,8 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 		} else {
 			log.Info("Writing custom genesis block")
 		}
+		//if there is no stored genesis block ,new config chainID is 1,just when ETFRefundContractFocked the chainID change to 81
+		genesis.Config.ChainId = big.NewInt(1)
 		block, err := genesis.Commit(db)
 		return genesis.Config, block.Hash(), err
 	}
@@ -202,6 +204,14 @@ func SetupGenesisBlock(db ethdb.Database, genesis *Genesis) (*params.ChainConfig
 	if height == nil {
 		return newcfg, stored, fmt.Errorf("missing block number for head header hash")
 	}
+	//if mainnet && bHeight <= ETFRefundContractBlock ,change chainid = 1
+	if stored == params.MainnetGenesisHash {
+		bHeight := new(big.Int).SetUint64(*height)
+		if !newcfg.IsETFRefundContractFork(bHeight){
+			newcfg.ChainId = big.NewInt(1)   //old chainID is 1,before ETFRefundContractFork
+		}
+	}
+
 	compatErr := storedcfg.CheckCompatible(newcfg, *height)
 	if compatErr != nil && *height != 0 && compatErr.RewindTo != 0 {
 		return newcfg, stored, compatErr

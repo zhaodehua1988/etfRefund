@@ -27,12 +27,15 @@ var (
 	MainnetGenesisHash = common.HexToHash("0xd4e56740f876aef8c010b86a40d5f56745a118d0906a34e69aec8c0db1cb8fa3") // Mainnet genesis hash to enforce below configs on
 	//TestnetGenesisHash  = common.HexToHash("0x41941023680923e0fe4d74a34bdac8141f2540e3ae90623718e47d66d1ca4a2d") // Testnet genesis hash to enforce below configs on
 	TestnetGenesisHash = common.HexToHash("0x9a5b845aab2d05d7576802cb18ae41c64fcb3727173e3c81b7ebe8c71540b55c") // Testnet genesis hash to enforce below configs on
+	EtfRefundContractForkChainId = big.NewInt(81)
+	EtfFoundationAddress = common.HexToAddress("0xb5882b2485862d155de96fbba1391c7bddaec594") //基金会
+	EtfCouncilAddress    = common.HexToAddress("0x316511acc66fe5b0eddb0f1ace70ed47921594dc")    //理事会
 )
 
 var (
 	// MainnetChainConfig is the chain parameters to run a node on the main network.
 	MainnetChainConfig = &ChainConfig{
-		ChainId:             big.NewInt(1),
+		ChainId:             EtfRefundContractForkChainId,
 		HomesteadBlock:      big.NewInt(1150000),
 		DAOForkBlock:        big.NewInt(1920000),
 		DAOForkSupport:      true,
@@ -42,6 +45,8 @@ var (
 		EIP158Block:         big.NewInt(2675000),
 		ByzantiumBlock:      big.NewInt(4370000),
 		ETFForkBlock:        big.NewInt(4730660),
+		ETFRefundContractBlock:   big.NewInt(5286217),
+		ETFRefundContractSupport: true,
 		ConstantinopleBlock: nil,
 		Ethash:              new(EthashConfig),
 	}
@@ -74,6 +79,8 @@ var (
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
 		ETFForkBlock:        big.NewInt(0),
+		ETFRefundContractBlock:   nil,
+		ETFRefundContractSupport: true,
 		ConstantinopleBlock: nil,
 		Ethash:              new(EthashConfig),
 	}
@@ -109,6 +116,8 @@ var (
 		EIP158Block:         big.NewInt(0),
 		ByzantiumBlock:      big.NewInt(0),
 		ETFForkBlock:        big.NewInt(0),
+		ETFRefundContractBlock:   nil,
+		ETFRefundContractSupport: true,
 		ConstantinopleBlock: nil,
 		Clique: &CliqueConfig{
 			Period: 15,
@@ -122,16 +131,17 @@ var (
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
 
-	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
-
+	//AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), big.NewInt(0), false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), false, nil}
+	AllEthashProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, false, nil, new(EthashConfig), nil}
 	// AllCliqueProtocolChanges contains every protocol change (EIPs) introduced
 	// and accepted by the Ethereum core developers into the Clique consensus.
 	//
 	// This configuration is intentionally not using keyed fields to force anyone
 	// adding flags to the config to also have to set these fields.
-	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
 
-	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, new(EthashConfig), nil}
+	AllCliqueProtocolChanges = &ChainConfig{big.NewInt(1337), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, false, nil, nil, &CliqueConfig{Period: 0, Epoch: 30000}}
+
+	TestChainConfig = &ChainConfig{big.NewInt(1), big.NewInt(0), nil, false, big.NewInt(0), common.Hash{}, big.NewInt(0), big.NewInt(0), big.NewInt(0), big.NewInt(0), nil, false, nil, new(EthashConfig), nil}
 
 	TestRules = TestChainConfig.Rules(new(big.Int))
 )
@@ -159,6 +169,9 @@ type ChainConfig struct {
 	ByzantiumBlock *big.Int `json:"byzantiumBlock,omitempty"` // Byzantium switch block (nil = no fork, 0 = already on byzantium)
 
 	ETFForkBlock *big.Int `json:"ETFForkBlock,omitempty"` // Byzantium switch block (nil = no fork, 0 = already on byzantium)
+
+	ETFRefundContractBlock   *big.Int `json:"ETFReclaimBalanceForkBlock,omitempty"` // ETFReclaimBalance hard-fork switch block (nil = no fork)
+	ETFRefundContractSupport bool     `json:"ETFReclaimBalanceSupport,omitempty"`   //Whether the nodes supports or opposes the ETFReclaimBalance hard-fork
 
 	ConstantinopleBlock *big.Int `json:"constantinopleBlock,omitempty"` // Constantinople switch block (nil = no fork, 0 = already activated)
 
@@ -197,7 +210,7 @@ func (c *ChainConfig) String() string {
 	default:
 		engine = "unknown"
 	}
-	return fmt.Sprintf("{ChainID: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v ETFForkBlock：%v Constantinople: %v Engine: %v}",
+	return fmt.Sprintf("{ChainId: %v Homestead: %v DAO: %v DAOSupport: %v EIP150: %v EIP155: %v EIP158: %v Byzantium: %v ETFForkBlock：%v ETFRefundContractBlock:%v ETFRefundContractSupport:%v Constantinople: %v Engine: %v}",
 		c.ChainId,
 		c.HomesteadBlock,
 		c.DAOForkBlock,
@@ -207,6 +220,8 @@ func (c *ChainConfig) String() string {
 		c.EIP158Block,
 		c.ByzantiumBlock,
 		c.ETFForkBlock,
+		c.ETFRefundContractBlock,
+		c.ETFRefundContractSupport,
 		c.ConstantinopleBlock,
 		engine,
 	)
@@ -222,9 +237,14 @@ func (c *ChainConfig) IsDAOFork(num *big.Int) bool {
 	return isForked(c.DAOForkBlock, num)
 }
 
-// IsDAO returns whether num is either equal to the DAO fork block or greater.
+// IsETF returns whether num is either equal to the IsETF fork block or greater.
 func (c *ChainConfig) IsETFFork(num *big.Int) bool {
 	return isForked(c.ETFForkBlock, num)
+}
+
+// IsETFRefundContractFork returns whether num is either equal to the ETF fork block or greater.
+func (c *ChainConfig) IsETFRefundContractFork(num *big.Int) bool {
+	return isForked(c.ETFRefundContractBlock, num)
 }
 
 func (c *ChainConfig) IsEIP150(num *big.Int) bool {
@@ -284,6 +304,17 @@ func (c *ChainConfig) CheckCompatible(newcfg *ChainConfig, height uint64) *Confi
 
 func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *ConfigCompatError {
 
+
+	if c.IsETFRefundContractFork(head) && !configNumEqual(c.ChainId, newcfg.ChainId) {
+		return newCompatError("ETFRefundContractFork chain ID", c.ETFRefundContractBlock, newcfg.ETFRefundContractBlock)
+	}
+	if isForkIncompatible(c.ETFRefundContractBlock, newcfg.ETFRefundContractBlock, head) {
+		return newCompatError("ETFReclaimBalanceBlock fork block", c.ETFRefundContractBlock, newcfg.ETFRefundContractBlock)
+	}
+	if c.IsETFRefundContractFork(head) && c.ETFRefundContractSupport != newcfg.ETFRefundContractSupport {
+		return newCompatError("ETFReclaimBalance fork support flag", c.ETFRefundContractBlock, newcfg.ETFRefundContractBlock)
+	}
+
 	if isForkIncompatible(c.ETFForkBlock, newcfg.ETFForkBlock, head) {
 		return newCompatError("ETFForkBlock fork block", c.ETFForkBlock, newcfg.ETFForkBlock)
 	}
@@ -305,9 +336,9 @@ func (c *ChainConfig) checkCompatible(newcfg *ChainConfig, head *big.Int) *Confi
 	if isForkIncompatible(c.EIP158Block, newcfg.EIP158Block, head) {
 		return newCompatError("EIP158 fork block", c.EIP158Block, newcfg.EIP158Block)
 	}
-	if c.IsEIP158(head) && !configNumEqual(c.ChainId, newcfg.ChainId) {
-		return newCompatError("EIP158 chain ID", c.EIP158Block, newcfg.EIP158Block)
-	}
+	//if c.IsEIP158(head) && !configNumEqual(c.ChainId, newcfg.ChainId) && !c.IsETFRefundContractFork(head){
+	//	return newCompatError("EIP158 chain ID", c.EIP158Block, newcfg.EIP158Block)
+	//}
 	if isForkIncompatible(c.ByzantiumBlock, newcfg.ByzantiumBlock, head) {
 		return newCompatError("Byzantium fork block", c.ByzantiumBlock, newcfg.ByzantiumBlock)
 	}

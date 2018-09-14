@@ -873,7 +873,8 @@ type RPCTransaction struct {
 func newRPCTransaction(tx *types.Transaction, blockHash common.Hash, blockNumber uint64, index uint64) *RPCTransaction {
 	var signer types.Signer = types.FrontierSigner{}
 	if tx.Protected() {
-		signer = types.NewEIP155Signer(tx.ChainId())
+		//signer = types.NewEIP155Signer(tx.ChainId())
+		signer = types.NewETFRefundSigner(tx.ChainId())
 	}
 	from, _ := types.Sender(signer, tx)
 	v, r, s := tx.RawSignatureValues()
@@ -1050,7 +1051,8 @@ func (s *PublicTransactionPoolAPI) GetTransactionReceipt(ctx context.Context, ha
 
 	var signer types.Signer = types.FrontierSigner{}
 	if tx.Protected() {
-		signer = types.NewEIP155Signer(tx.ChainId())
+		//signer = types.NewEIP155Signer(tx.ChainId())
+		signer = types.NewETFRefundSigner(tx.ChainId())
 	}
 	from, _ := types.Sender(signer, tx)
 
@@ -1305,7 +1307,8 @@ func (s *PublicTransactionPoolAPI) PendingTransactions() ([]*RPCTransaction, err
 	for _, tx := range pending {
 		var signer types.Signer = types.HomesteadSigner{}
 		if tx.Protected() {
-			signer = types.NewEIP155Signer(tx.ChainId())
+			//signer = types.NewEIP155Signer(tx.ChainId())
+			signer = types.NewETFRefundSigner(tx.ChainId())
 		}
 		from, _ := types.Sender(signer, tx)
 		if _, err := s.b.AccountManager().Find(accounts.Account{Address: from}); err == nil {
@@ -1333,7 +1336,8 @@ func (s *PublicTransactionPoolAPI) Resend(ctx context.Context, sendArgs SendTxAr
 	for _, p := range pending {
 		var signer types.Signer = types.HomesteadSigner{}
 		if p.Protected() {
-			signer = types.NewEIP155Signer(p.ChainId())
+			//signer = types.NewEIP155Signer(p.ChainId())
+			signer = types.NewETFRefundSigner(p.ChainId())
 		}
 		wantSigHash := signer.Hash(matchTx)
 

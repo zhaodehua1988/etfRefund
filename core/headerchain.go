@@ -34,6 +34,7 @@ import (
 	"github.com/ethereum/go-ethereum/log"
 	"github.com/ethereum/go-ethereum/params"
 	"github.com/hashicorp/golang-lru"
+	"github.com/ethereum/go-ethereum/consensus/misc"
 )
 
 const (
@@ -270,6 +271,15 @@ func (hc *HeaderChain) InsertHeaderChain(chain []*types.Header, writeHeader WhCa
 		if hc.HasHeader(header.Hash(), header.Number.Uint64()) {
 			stats.ignored++
 			continue
+		}
+
+		//hc.chainDb
+		if  header.Number.Cmp(params.MainnetChainConfig.ETFRefundContractBlock)==0{
+			//log.Error("light node set ETFRefundHardForkChainId start ")
+			err:=misc.SetEtfRefundHardForkChainId(hc.chainDb,hc.config)
+			if err != nil{
+				log.Error("light node set ETFRefundHardForkChainId err ")
+			}
 		}
 		if err := writeHeader(header); err != nil {
 			return i, err
